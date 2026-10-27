@@ -1,0 +1,72 @@
+<div class="page-header"><div><h1>Grupos</h1><p class="muted">Conecte suas contas e escolha os grupos que receberão as promoções</p></div></div>
+
+<div class="row">
+  <div class="card grow" style="flex:1">
+    <h3>🟢 WhatsApp</h3>
+    <% if (!whatsappEnabled) { %>
+      <p class="warn">Defina <code>WHATSAPP_ENABLED=true</code> no .env e reinicie o servidor.</p>
+    <% } else if (whatsapp.status === 'ready') { %>
+      <p><span class="pill ok">Conectado</span></p>
+      <form method="POST" action="/grupos/whatsapp/sync" class="inline"><button class="btn btn-primary">🔄 Importar grupos</button></form>
+      <form method="POST" action="/grupos/whatsapp/logout" class="inline"><button class="btn btn-light">Desconectar</button></form>
+    <% } else if (whatsapp.status === 'qr') { %>
+      <p>Escaneie com o WhatsApp (Aparelhos conectados):</p><img src="<%= whatsapp.qr %>" width="220">
+    <% } else { %>
+      <p class="muted">Iniciando cliente… aguarde o QR Code.</p>
+    <% } %>
+  </div>
+
+  <div class="card grow" style="flex:1">
+    <h3>🔵 Telegram</h3>
+    <% if (!telegramConfigured) { %>
+      <p class="warn">Defina <code>TELEGRAM_BOT_TOKEN</code> no .env (crie o bot no @BotFather).</p>
+    <% } else { %>
+      <p class="muted">Adicione o bot como administrador do grupo/canal, envie uma mensagem lá e clique em importar.</p>
+      <form method="POST" action="/grupos/telegram/sync"><button class="btn btn-primary">🔄 Importar grupos</button></form>
+      <details><summary class="muted small">Adicionar manualmente por chat_id</summary>
+        <form method="POST" action="/grupos/telegram/manual" class="row">
+          <div class="field grow"><input name="name" placeholder="Nome" required></div>
+          <div class="field grow"><input name="external_id" placeholder="-1001234567890" required></div>
+          <div class="field"><button class="btn btn-light">Adicionar</button></div>
+        </form>
+      </details>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Grupos cadastrados</h3>
+  <% if (!groups.length) { %><div class="empty">👥<p>Nenhum grupo importado ainda.</p></div><% } else { %>
+  <table>
+    <thead><tr><th>Plataforma</th><th>Nome</th><th>ID</th><th>Ativo para envio</th><th class="text-right">Ações</th></tr></thead>
+    <tbody>
+      <% groups.forEach(g => { %>
+        <tr>
+          <td><%= g.platform === 'whatsapp' ? '🟢 WhatsApp' : '🔵 Telegram' %></td>
+          <td><%= g.name %></td>
+          <td class="muted small"><%= g.external_id %></td>
+          <td>
+            <form method="POST" action="/grupos/<%= g.id %>/toggle">
+              <input type="hidden" name="active" value="<%= g.active ? 0 : 1 %>">
+              <button class="pill <%= g.active ? 'ok' : 'off' %>"><%= g.active ? 'Sim' : 'Não' %></button>
+            </form>
+          </td>
+          <td class="text-right actions-inline">
+            <form method="POST" action="/grupos/<%= g.id %>/delete" onsubmit="return confirm('Remover grupo?')"><button>🗑️</button></form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+
+<% if (whatsappEnabled && whatsapp.status !== 'ready') { %>
+<script>
+  let last = '<%= whatsapp.status %>';
+  setInterval(async () => {
+    const s = await (await fetch('/api/groups/whatsapp/status')).json();
+    if (s.status !== last) location.reload();
+  }, 3000);
+</script>
+<% } %>

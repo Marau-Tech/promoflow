@@ -1,0 +1,108 @@
+<div class="page-header">
+  <div>
+    <h1>Gerar Promoção</h1>
+    <p class="muted">Transforme links de produtos em mensagens promocionais prontas para compartilhar</p>
+  </div>
+</div>
+
+<div class="card">
+  <p class="hint">💡 Cole até <%= maxLinks %> links de uma vez para criar os itens automaticamente.</p>
+
+  <div class="row">
+    <div class="field grow">
+      <label>Link do produto *</label>
+      <div class="link-list" id="links"></div>
+      <div class="link-tools">
+        <button type="button" class="btn btn-link btn-xs" id="addLink">+ Adicionar link</button>
+        <span class="muted small" id="linkCount">1/<%= maxLinks %></span>
+      </div>
+    </div>
+    <div class="field fixed">
+      <label>Loja *</label>
+      <select id="storeHint">
+        <option value="">Detectar automaticamente</option>
+        <% stores.forEach(s => { %><option value="<%= s.key %>"><%= s.label %></option><% }) %>
+      </select>
+    </div>
+    <div class="field fixed">
+      <label>Template *</label>
+      <select id="templateId">
+        <% templates.forEach(t => { %>
+          <option value="<%= t.id %>" <%= t.is_default ? 'selected' : '' %>><%= t.name %><%= t.is_default ? ' ⭐' : '' %></option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn" id="clearAll">🗑️ Limpar tudo</button>
+    <div class="spacer"></div>
+    <label class="checkbox boxed"><input type="checkbox" id="autoSend"> Envio automático</label>
+    <button type="button" class="btn btn-primary" id="generate">⬇️ Gerar promoção(ões)</button>
+  </div>
+
+  <div id="groupPicker" class="group-picker hidden">
+    <p class="muted">Selecione os grupos que receberão as promoções assim que forem geradas:</p>
+    <% if (!groups.length) { %><p class="warn">Nenhum grupo cadastrado. <a href="/grupos">Conectar WhatsApp / Telegram</a></p><% } %>
+    <% groups.forEach(g => { %>
+      <label class="checkbox"><input type="checkbox" class="groupCheck" value="<%= g.id %>"> <%= g.platform === 'whatsapp' ? '🟢' : '🔵' %> <%= g.name %></label>
+    <% }) %>
+  </div>
+</div>
+
+<div id="results"></div>
+
+<template id="promoCard">
+  <div class="card promo-card">
+    <div class="promo-head">
+      <span class="badge">#<span class="idx"></span></span>
+      <span class="head-title"></span>
+      <span class="store-badge"></span>
+    </div>
+    <div class="promo-body">
+      <div class="promo-form">
+        <h4>🧩 Personalizar dados</h4>
+        <div class="row">
+          <div class="field grow"><label>SKU</label><input name="sku"></div>
+          <div class="field sm"><label>Moeda</label><input value="R$" disabled></div>
+        </div>
+        <div class="field"><label>Título do produto</label><input name="title"></div>
+        <div class="row">
+          <div class="field grow"><label>Preço original</label><input name="original_price" type="number" step="0.01" placeholder="0,00"></div>
+          <div class="field grow"><label>Preço</label><input name="price" type="number" step="0.01" placeholder="0,00"></div>
+        </div>
+        <div class="field"><label>URL da imagem</label><input name="image_url"></div>
+        <div class="field"><label>Cupom de desconto</label><select name="coupon_id"></select></div>
+        <div class="field"><label>Slogan</label><select name="slogan_id"></select></div>
+        <div class="field"><label>Link para divulgação</label><input name="url"></div>
+      </div>
+      <div class="promo-preview">
+        <h4>👁️ Preview WhatsApp</h4>
+        <div class="wa">
+          <div class="wa-header"><div>Grupo de Ofertas<small>256 membros</small></div></div>
+          <div class="wa-bubble">
+            <img class="wa-img" alt="">
+            <div class="wa-text"></div>
+            <span class="wa-time">09:26 ✓✓</span>
+          </div>
+        </div>
+        <div class="preview-actions">
+          <button class="btn btn-primary copyBtn">📋 Copiar texto</button>
+          <button class="btn sendBtn">👥 Enviar para grupos</button>
+        </div>
+        <div class="send-picker hidden"></div>
+        <label>Texto bruto (para copiar):</label>
+        <pre class="raw"></pre>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  window.PROMO_DATA = {
+    maxLinks: <%= maxLinks %>,
+    slogans: <%- JSON.stringify(slogans) %>,
+    groups: <%- JSON.stringify(groups) %>,
+  };
+</script>
+<script src="/js/promotions.js"></script>

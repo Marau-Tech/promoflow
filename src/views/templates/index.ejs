@@ -1,0 +1,100 @@
+<div class="page-header">
+  <div><h1>Templates de Promoção</h1><p class="muted">Crie modelos reutilizáveis para suas mensagens promocionais</p></div>
+  <div class="text-right"><a href="#form" class="btn btn-primary">+ Novo Template</a><div class="muted small">Limite: <%= count %>/<%= limit %></div></div>
+</div>
+
+<div class="card steps">
+  <div class="step"><span class="num">1</span><strong>Comece pelo padrão</strong><p>Ele já vem pronto e é usado quando você não escolhe outro.</p></div>
+  <div class="step"><span class="num">2</span><strong>Dê um nome e edite</strong><p>Escreva como você fala com o seu grupo e salve com um nome.</p></div>
+  <div class="step"><span class="num">3</span><strong>Escolha o slogan</strong><p>Os slogans ativos entram em rodízio aleatório nas promoções.</p></div>
+</div>
+
+<div class="template-grid">
+  <% templates.forEach(t => { %>
+    <div class="card template-card">
+      <div class="template-head">
+        <strong>📄 <%= t.name %></strong>
+        <% if (t.is_default) { %><span class="pill star">⭐ Padrão</span><% } %>
+      </div>
+      <pre class="template-code"><%= t.content %></pre>
+      <div class="actions-inline">
+        <a href="/templates?edit=<%= t.id %>#form" title="Editar">✏️</a>
+        <% if (!t.is_default) { %>
+          <form method="POST" action="/templates/<%= t.id %>/default"><button title="Definir como padrão">⭐</button></form>
+          <form method="POST" action="/templates/<%= t.id %>/delete" onsubmit="return confirm('Excluir este template?')"><button title="Excluir">🗑️</button></form>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<div class="card" id="form">
+  <h3><%= editing ? 'Editar template' : 'Novo template' %></h3>
+  <form method="POST" action="<%= editing ? '/templates/' + editing.id : '/templates' %>">
+    <div class="field"><label>Nome *</label><input name="name" required value="<%= editing?.name || '' %>"></div>
+    <div class="row">
+      <div class="field grow">
+        <label>Conteúdo *</label>
+        <textarea name="content" id="tplContent" rows="14" required><%= editing?.content || '' %></textarea>
+        <p class="hint">Variáveis: <code>{{title}}</code> <code>{{price}}</code> <code>{{original_price}}</code> <code>{{url}}</code> <code>{{store}}</code> <code>{{sku}}</code> <code>{{slogan}}</code> <code>{{discount_percent}}</code> <code>{{coupon.code}}</code> <code>{{coupon.label}}</code>.
+        Use <code>{{#slogan}}...{{/slogan}}</code> para mostrar um trecho só quando houver valor. Formatação: <code>*negrito*</code> <code>~riscado~</code> <code>_itálico_</code>.</p>
+      </div>
+      <div class="field grow">
+        <label>Pré-visualização</label>
+        <pre class="raw" id="tplPreview">Digite o conteúdo para ver a prévia…</pre>
+      </div>
+    </div>
+    <div class="actions">
+      <% if (editing) { %><a href="/templates" class="btn btn-light">Cancelar</a><% } %>
+      <button class="btn btn-primary"><%= editing ? 'Salvar alterações' : 'Criar template' %></button>
+    </div>
+  </form>
+</div>
+
+<div class="page-header" id="slogans">
+  <div><h2>Slogans</h2><p class="muted">Crie frases curtas para destacar suas promoções</p></div>
+  <div class="muted small">Limite: <%= slogans.length %>/50</div>
+</div>
+<div class="card">
+  <form method="POST" action="/slogans" class="row">
+    <div class="field grow"><input name="text" required placeholder="Ex: Frete Grátis"></div>
+    <div class="field"><button class="btn btn-primary">+ Novo Slogan</button></div>
+  </form>
+  <table>
+    <thead><tr><th>Título</th><th>Status</th><th class="text-right">Ações</th></tr></thead>
+    <tbody>
+      <% slogans.forEach(s => { %>
+        <tr>
+          <td>
+            <form method="POST" action="/slogans/<%= s.id %>" class="inline-edit">
+              <input name="text" value="<%= s.text %>">
+              <input type="hidden" name="active" value="<%= s.active %>">
+              <button class="btn btn-light btn-xs">Salvar</button>
+            </form>
+          </td>
+          <td>
+            <form method="POST" action="/slogans/<%= s.id %>">
+              <input type="hidden" name="text" value="<%= s.text %>">
+              <input type="hidden" name="active" value="<%= s.active ? 0 : 1 %>">
+              <button class="pill <%= s.active ? 'ok' : 'off' %>"><%= s.active ? 'Ativo' : 'Inativo' %></button>
+            </form>
+          </td>
+          <td class="text-right actions-inline">
+            <form method="POST" action="/slogans/<%= s.id %>/delete" onsubmit="return confirm('Excluir este slogan?')"><button>🗑️</button></form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  const ta = document.getElementById('tplContent'), pv = document.getElementById('tplPreview');
+  let timer;
+  async function refreshPreview() {
+    const r = await fetch('/api/templates/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: ta.value }) });
+    pv.textContent = (await r.json()).preview || '';
+  }
+  ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refreshPreview, 300); });
+  if (ta.value) refreshPreview();
+</script>

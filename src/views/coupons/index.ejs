@@ -1,0 +1,63 @@
+<div class="page-header">
+  <div><h1>Meus Cupons</h1><p class="muted">Gerencie seus cupons de desconto para cada plataforma</p></div>
+  <div class="text-right"><a href="#form" class="btn btn-primary">+ Novo Cupom</a><div class="muted small">Limite: <%= count %>/<%= limit %></div></div>
+</div>
+
+<div class="card steps">
+  <div class="step"><span class="num">1</span><strong>Cadastre o cupom</strong><p>Informe o código, a plataforma e o valor do desconto.</p></div>
+  <div class="step"><span class="num">2</span><strong>Gere a promoção</strong><p>O cupom entra automaticamente na mensagem enviada aos grupos.</p></div>
+  <div class="step"><span class="num">3</span><strong>Aumente a conversão</strong><p>O cliente aplica o desconto na hora da compra e você vende mais.</p></div>
+</div>
+
+<div class="card" id="form">
+  <h3><%= editing ? 'Editar cupom' : 'Novo cupom' %></h3>
+  <form method="POST" action="<%= editing ? '/cupons/' + editing.id : '/cupons' %>">
+    <div class="row">
+      <div class="field grow"><label>Código *</label><input name="code" required value="<%= editing?.code || '' %>" placeholder="EX: PROMO10"></div>
+      <div class="field grow"><label>Plataforma *</label>
+        <select name="platform">
+          <option value="all" <%= editing?.platform === 'all' ? 'selected' : '' %>>Todas</option>
+          <% stores.forEach(s => { %><option value="<%= s.key %>" <%= editing?.platform === s.key ? 'selected' : '' %>><%= s.label %></option><% }) %>
+        </select>
+      </div>
+      <div class="field"><label>Tipo</label>
+        <select name="discount_type">
+          <option value="percent" <%= editing?.discount_type === 'percent' ? 'selected' : '' %>>% (porcentagem)</option>
+          <option value="fixed" <%= editing?.discount_type === 'fixed' ? 'selected' : '' %>>R$ (valor fixo)</option>
+        </select>
+      </div>
+      <div class="field"><label>Valor</label><input name="discount_value" type="number" step="0.01" value="<%= editing?.discount_value || '' %>"></div>
+    </div>
+    <div class="field"><label>Descrição (opcional)</label><input name="description" value="<%= editing?.description || '' %>" placeholder="Ex: válido para a primeira compra"></div>
+    <% if (editing) { %><label class="checkbox"><input type="checkbox" name="active" <%= editing.active ? 'checked' : '' %>> Ativo</label><% } %>
+    <div class="actions">
+      <% if (editing) { %><a href="/cupons" class="btn btn-light">Cancelar</a><% } %>
+      <button class="btn btn-primary"><%= editing ? 'Salvar alterações' : 'Cadastrar cupom' %></button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <% if (!coupons.length) { %>
+    <div class="empty">🎟️<p>Nenhum cupom cadastrado.</p><small>Cadastre cupons de desconto para usar nas suas promoções.</small></div>
+  <% } else { %>
+    <table>
+      <thead><tr><th>Código</th><th>Plataforma</th><th>Desconto</th><th>Descrição</th><th>Status</th><th class="text-right">Ações</th></tr></thead>
+      <tbody>
+        <% coupons.forEach(c => { %>
+          <tr>
+            <td><code><%= c.code %></code></td>
+            <td><%= c.platform === 'all' ? 'Todas' : (stores.find(s => s.key === c.platform)?.label || c.platform) %></td>
+            <td><%= c.discount_type === 'percent' ? c.discount_value + '%' : 'R$ ' + Number(c.discount_value).toFixed(2).replace('.', ',') %></td>
+            <td class="muted"><%= c.description || '—' %></td>
+            <td><span class="pill <%= c.active ? 'ok' : 'off' %>"><%= c.active ? 'Ativo' : 'Inativo' %></span></td>
+            <td class="text-right actions-inline">
+              <a href="/cupons?edit=<%= c.id %>#form" title="Editar">✏️</a>
+              <form method="POST" action="/cupons/<%= c.id %>/delete" onsubmit="return confirm('Excluir este cupom?')"><button title="Excluir">🗑️</button></form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
