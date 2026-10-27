@@ -10,7 +10,7 @@
       <form method="POST" action="/grupos/whatsapp/sync" class="inline"><button class="btn btn-primary">🔄 Importar grupos</button></form>
       <form method="POST" action="/grupos/whatsapp/logout" class="inline"><button class="btn btn-light">Desconectar</button></form>
     <% } else if (whatsapp.status === 'qr') { %>
-      <p>Escaneie com o WhatsApp (Aparelhos conectados):</p><img src="<%= whatsapp.qr %>" width="220">
+      <p>Escaneie com o WhatsApp (Aparelhos conectados):</p><img id="waQr" src="<%= whatsapp.qr %>" width="220">
     <% } else { %>
       <p class="muted">Iniciando cliente… aguarde o QR Code.</p>
     <% } %>
@@ -66,7 +66,9 @@
   let last = '<%= whatsapp.status %>';
   setInterval(async () => {
     const s = await (await fetch('/api/groups/whatsapp/status')).json();
-    if (s.status !== last) location.reload();
+    if (s.status === 'ready' || s.status !== last) return location.reload();
+    const img = document.querySelector('#waQr');
+    if (img && s.qr && img.src !== s.qr) img.src = s.qr;
   }, 3000);
 </script>
 <% } %>

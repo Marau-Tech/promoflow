@@ -50,6 +50,57 @@
   </div>
 </div>
 
+<div id="batchPanel" class="card batch-panel hidden">
+  <div class="batch-head">
+    <div>
+      <h3>📬 Enviar todas as promoções geradas</h3>
+      <p class="muted small">Espaça os envios para não despejar tudo de uma vez nos grupos. Um agendamento é criado por promoção.</p>
+    </div>
+    <span class="badge" id="batchCount"></span>
+  </div>
+
+  <div class="batch-groups">
+    <label>Grupos de destino</label>
+    <div class="group-picker" style="margin-top:6px">
+      <% if (!groups.length) { %><p class="warn">Nenhum grupo cadastrado. <a href="/grupos">Conectar</a></p><% } %>
+      <% groups.forEach(g => { %>
+        <label class="checkbox"><input type="checkbox" class="batchGroup" value="<%= g.id %>"> <%= g.platform === 'whatsapp' ? '🟢' : '🔵' %> <%= g.name %></label>
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:14px">
+    <div class="field">
+      <label>Começar</label>
+      <select id="batchStartMode">
+        <option value="now">Agora</option>
+        <option value="at">Em data/hora específica</option>
+      </select>
+    </div>
+    <div class="field batch-when hidden"><label>Data</label><input type="date" id="batchDate"></div>
+    <div class="field batch-when hidden"><label>Hora</label><input type="time" id="batchTime"></div>
+    <div class="field">
+      <label>Intervalo entre envios</label>
+      <select id="batchInterval">
+        <option value="5">5 minutos</option>
+        <option value="10">10 minutos</option>
+        <option value="15" selected>15 minutos</option>
+        <option value="30">30 minutos</option>
+        <option value="60">1 hora</option>
+        <option value="120">2 horas</option>
+        <option value="custom">Personalizado…</option>
+      </select>
+    </div>
+    <div class="field hidden" id="batchCustomWrap"><label>Minutos</label><input type="number" id="batchCustom" min="1" value="20" style="width:100px"></div>
+  </div>
+
+  <div class="sched-preview" id="batchPreview"></div>
+  <div class="actions">
+    <div class="spacer"></div>
+    <button type="button" class="btn btn-primary" id="batchConfirm">🗓️ Criar agendamentos</button>
+  </div>
+</div>
+
 <div id="results"></div>
 
 <template id="promoCard">
@@ -98,11 +149,33 @@
   </div>
 </template>
 
+<!-- Modal de agendamento -->
+<div id="scheduleModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><strong>Agendar envio</strong><button type="button" class="modal-close" id="schedClose">✕</button></div>
+    <div class="modal-body">
+      <div class="chips" id="schedGroups"></div>
+      <div class="row">
+        <div class="field grow"><label>Horário</label><input type="time" id="schedTime"></div>
+        <div class="field grow"><label>Data</label><input type="date" id="schedDate"></div>
+      </div>
+      <p class="hint">Máximo de 10 dias a partir de hoje</p>
+      <div class="sched-preview" id="schedPreview"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" id="schedBack">‹ Voltar</button>
+      <button type="button" class="btn btn-primary" id="schedConfirm">🗓️ Confirmar agendamento</button>
+    </div>
+  </div>
+</div>
+
+
 <script>
   window.PROMO_DATA = {
     maxLinks: <%= maxLinks %>,
     slogans: <%- JSON.stringify(slogans) %>,
     groups: <%- JSON.stringify(groups) %>,
+    stores: <%- JSON.stringify(storePatterns) %>,
   };
 </script>
 <script src="/js/promotions.js"></script>

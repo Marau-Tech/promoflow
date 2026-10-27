@@ -83,6 +83,17 @@ function initDatabase() {
       error TEXT,
       sent_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
     );
+    CREATE TABLE IF NOT EXISTS schedules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      promotion_id INTEGER NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
+      group_ids TEXT NOT NULL,              
+      scheduled_at TEXT NOT NULL,           
+      status TEXT NOT NULL DEFAULT 'pending', 
+      report TEXT,                          
+      error TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      sent_at TEXT
+    );
   `);
   seed();
 }

@@ -9,5 +9,7 @@ router.use('/api/templates', require('./templates').api);
 router.use('/slogans', require('./slogans'));
 router.use('/grupos', require('./groups').pages);
 router.use('/api/groups', require('./groups').api);
+router.use('/agendamentos', require('./schedules').pages);
+router.use('/api/schedules', require('./schedules').api);
 
 module.exports = router;

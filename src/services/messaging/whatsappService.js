@@ -1,60 +1,91 @@
-const QRCode = require('qrcode');
+const axios = require('axios');
 
-let Client, LocalAuth, MessageMedia;
-let client = null;
-let state = { status: 'disconnected', qr: null };
+const http = () => axios.create({
+  baseURL: process.env.EVOLUTION_URL,
+  headers: { apikey: process.env.EVOLUTION_API_KEY },
+  timeout: 30000,
+});
+const instance = () => process.env.EVOLUTION_INSTANCE || 'promoflow';
 
-function init() {
-  ({ Client, LocalAuth, MessageMedia } = require('whatsapp-web.js'));
+const QR_TTL_MS = 40000;   // tempo de validade aproximado do QR gerado pela Evolution
 
-  client = new Client({
-    authStrategy: new LocalAuth({ dataPath: './data/wa-session' }),
-    puppeteer: {
-      headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    },
-  });
+let state = { status: 'disconnected', qr: null };   // disconnected | qr | ready
+let lastQrAt = 0;
 
-  client.on('qr', async qr => {
-    state = { status: 'qr', qr: await QRCode.toDataURL(qr) };
-    console.log('[WhatsApp] Escaneie o QR Code na página /grupos');
-  });
-  client.on('ready', () => { state = { status: 'ready', qr: null }; console.log('[WhatsApp] Conectado'); });
-  client.on('disconnected', () => { state = { status: 'disconnected', qr: null }; console.log('[WhatsApp] Desconectado'); });
+/** Garante que a instância existe e começa a monitorar o estado. Tenta até a Evolution responder. */
+async function init() {
+  try {
+    await http().post('/instance/create', { instanceName: instance(), qrcode: true, integration: 'WHATSAPP-BAILEYS' });
+    console.log('[WhatsApp] Instância criada na Evolution API');
+  } catch (err) {
+    const status = err.response?.status;
+    if (status !== 403) {   // 403 = instância já existe, segue normalmente
+      const msg = err.response?.data?.response?.message?.[0] || err.message;
+      console.warn(`[WhatsApp] Evolution API indisponível (${msg}). Nova tentativa em 5s...`);
+      setTimeout(() => init().catch(() => {}), 5000);
+      return;
+    }
+  }
+  await refreshState().catch(err => console.warn('[WhatsApp] Falha ao consultar estado:', err.message));
+  setInterval(() => refreshState().catch(() => {}), 5000);
+  console.log('[WhatsApp] Monitorando instância', instance());
+}
 
-  client.initialize().catch(err => console.error('[WhatsApp] Falha ao iniciar:', err.message));
+/** Consulta o estado da conexão; só pede QR novo quando não há um ou quando o atual expirou. */
+async function refreshState() {
+  const { data } = await http().get(`/instance/connectionState/${instance()}`);
+  const st = data?.instance?.state;
+
+  if (st === 'open') {
+    if (state.status !== 'ready') console.log('[WhatsApp] Conectado');
+    state = { status: 'ready', qr: null };
+    return;
+  }
+
+  const stale = Date.now() - lastQrAt > QR_TTL_MS;
+  if (state.status !== 'qr' || stale) {
+    const { data: conn } = await http().get(`/instance/connect/${instance()}`);
+    if (conn?.base64) {
+      state = { status: 'qr', qr: conn.base64 };
+      lastQrAt = Date.now();
+    } else {
+      state = { status: 'disconnected', qr: null };
+    }
+  }
 }
 
 function getState() { return state; }
 
 function ensureReady() {
-  if (!client || state.status !== 'ready') throw new Error('WhatsApp não está conectado. Acesse a página Grupos e escaneie o QR Code.');
+  if (state.status !== 'ready') throw new Error('WhatsApp não está conectado. Acesse a página Grupos e escaneie o QR Code.');
 }
 
 async function listGroups() {
   ensureReady();
-  const chats = await client.getChats();
-  return chats.filter(c => c.isGroup).map(c => ({ external_id: c.id._serialized, name: c.name, platform: 'whatsapp' }));
+  const { data } = await http().get(`/group/fetchAllGroups/${instance()}`, { params: { getParticipants: false } });
+  return (data || []).map(g => ({ external_id: g.id, name: g.subject, platform: 'whatsapp' }));
 }
 
 async function sendPromotion(groupId, { message, image_url }) {
   ensureReady();
   if (image_url) {
     try {
-      const media = await MessageMedia.fromUrl(image_url, { unsafeMime: true });
-      await client.sendMessage(groupId, media, { caption: message });
+      await http().post(`/message/sendMedia/${instance()}`, { number: groupId, mediatype: 'image', media: image_url, caption: message });
       return;
     } catch (err) {
-      console.warn('[WhatsApp] Falha ao baixar imagem, enviando só texto:', err.message);
+      console.warn('[WhatsApp] Falha ao enviar imagem, enviando só texto:', err.response?.data?.message || err.message);
     }
   }
-  await client.sendMessage(groupId, message);
+  await http().post(`/message/sendText/${instance()}`, { number: groupId, text: message });
 }
 
 async function logout() {
-  if (client) await client.logout();
+  try { await http().delete(`/instance/logout/${instance()}`); } catch (_) { /* pode já estar deslogada */ }
+  try { await http().delete(`/instance/delete/${instance()}`); } catch (_) { /* pode já não existir */ }
   state = { status: 'disconnected', qr: null };
+  lastQrAt = 0;
+  await http().post('/instance/create', { instanceName: instance(), qrcode: true, integration: 'WHATSAPP-BAILEYS' });
+  await refreshState().catch(() => {});
 }
 
 module.exports = { init, getState, listGroups, sendPromotion, logout };

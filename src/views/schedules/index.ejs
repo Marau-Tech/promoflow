@@ -1,0 +1,73 @@
+<div class="page-header">
+  <div>
+    <h1>Agendamentos</h1>
+    <p class="muted">Esta tela é o seu painel de controle: aqui você acompanha tudo que já foi agendado. O agendamento em si não é criado aqui.</p>
+  </div>
+  <form method="GET" action="/agendamentos">
+    <select name="status" onchange="this.form.submit()">
+      <option value="">Todos os status</option>
+      <option value="pending"   <%= status === 'pending'   ? 'selected' : '' %>>Pendentes (<%= counts.pending || 0 %>)</option>
+      <option value="sent"      <%= status === 'sent'      ? 'selected' : '' %>>Enviados (<%= counts.sent || 0 %>)</option>
+      <option value="failed"    <%= status === 'failed'    ? 'selected' : '' %>>Com falha (<%= counts.failed || 0 %>)</option>
+      <option value="cancelled" <%= status === 'cancelled' ? 'selected' : '' %>>Cancelados (<%= counts.cancelled || 0 %>)</option>
+    </select>
+  </form>
+</div>
+
+<%
+  const fmt = iso => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+  const labels = { pending: ['Pendente', 'star'], sent: ['Enviado', 'ok'], failed: ['Falhou', 'err'], cancelled: ['Cancelado', 'off'] };
+%>
+
+<div class="card">
+  <% if (!schedules.length) { %>
+    <div class="empty">🗓️
+      <p>Nenhum agendamento encontrado</p>
+      <small>O agendamento é criado ao gerar uma promoção — assim que isso acontecer, ele aparece aqui.</small>
+      <div style="margin-top:16px"><a href="/promocoes" class="btn btn-primary">🚀 Gerar Promoção</a></div>
+    </div>
+  <% } else { %>
+    <table>
+      <thead><tr><th>Promoção</th><th>Grupos</th><th>Agendado para</th><th>Status</th><th class="text-right">Ações</th></tr></thead>
+      <tbody>
+        <% schedules.forEach(s => { const [label, cls] = labels[s.status] || [s.status, 'off']; %>
+          <tr>
+            <td>
+              <div class="sched-promo">
+                <% if (s.image_url) { %><img src="<%= s.image_url %>" alt=""><% } %>
+                <div><strong><%= s.title || '(sem título)' %></strong><br><a class="small" href="<%= s.url %>" target="_blank">abrir link</a></div>
+              </div>
+            </td>
+            <td>
+              <% s.groups.forEach(g => { %><span class="chip"><%= g.platform === 'whatsapp' ? '🟢' : '🔵' %> <%= g.name %></span><% }) %>
+              <% if (!s.groups.length) { %><span class="muted small">grupos removidos</span><% } %>
+            </td>
+            <td><%= fmt(s.scheduled_at) %><% if (s.sent_at) { %><br><span class="muted small">enviado <%= s.sent_at %></span><% } %></td>
+            <td>
+              <span class="pill <%= cls %>"><%= label %></span>
+              <% if (s.report) { const ok = s.report.filter(r => r.ok).length; %><br><span class="muted small"><%= ok %>/<%= s.report.length %> grupo(s)</span><% } %>
+              <% if (s.error) { %><br><span class="warn small"><%= s.error %></span><% } %>
+            </td>
+            <td class="text-right actions-inline">
+              <% if (s.status === 'pending') { %>
+                <form method="POST" action="/agendamentos/<%= s.id %>/cancel" onsubmit="return confirm('Cancelar este agendamento?')"><button title="Cancelar">⛔</button></form>
+              <% } %>
+              <form method="POST" action="/agendamentos/<%= s.id %>/delete" onsubmit="return confirm('Excluir do histórico?')"><button title="Excluir">🗑️</button></form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<div class="card info-box">
+  <strong>ℹ️ Onde eu agendo, então?</strong>
+  <p class="muted">O agendamento acontece dentro do fluxo <strong>Gerar promoção</strong>, no último passo. Só depois de escolher os grupos é que você decide se envia na hora ou agenda para depois — e aí a promoção cai nesta lista.</p>
+  <div class="steps">
+    <div class="step"><strong>1. Cole o link</strong><p>A loja é identificada automaticamente pelo link.</p></div>
+    <div class="step"><strong>2. Gere a promoção</strong><p>Título, preço e imagem prontos, com seu link de afiliado.</p></div>
+    <div class="step"><strong>3. Escolha os grupos</strong><p>Selecione um ou vários grupos de uma única vez.</p></div>
+    <div class="step"><strong>4. Enviar agora ou agendar</strong><p>Só ali você define o horário. Depois disso, tudo aparece aqui.</p></div>
+  </div>
+</div>

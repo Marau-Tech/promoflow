@@ -25,7 +25,10 @@ async function scrapeProduct(url) {
   const store = detectStore(finalUrl) !== 'generic' ? detectStore(finalUrl) : detectStore(url);
   const $ = cheerio.load(response.data);
   const parser = PARSERS[store] || parseGeneric;
-  const data = parser($, finalUrl);
+  const data = parser($, finalUrl, response.data);
+
+  console.log(`[Scraper] ${store}: sku=${data.sku} título="${data.title}" preço=${data.price} original=${data.original_price}`);
+
   return { ...data, store, final_url: finalUrl, url };
 }
 

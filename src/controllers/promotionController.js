@@ -13,6 +13,7 @@ exports.index = (req, res) => {
     slogans: Slogan.active(),
     groups: Group.active(),
     stores: STORES,
+    storePatterns: STORES.map(s => ({ key: s.key, label: s.label, pattern: s.pattern.source })),
     maxLinks: promotionService.MAX_LINKS,
   });
 };
