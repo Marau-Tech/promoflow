@@ -13,17 +13,17 @@
   <% templates.forEach(t => { %>
     <div class="card template-card">
       <div class="template-head">
-        <strong>📄 <%= t.name %></strong>
-        <% if (t.is_default) { %><span class="pill star">⭐ Padrão</span><% } %>
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1"><strong style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">📄 <%= t.name %></strong>
+        <% if (t.is_default) { %><span class="pill star">⭐ Padrão</span><% } %></div>
+        <div class="actions-inline">
+          <a href="/templates?edit=<%= t.id %>#form" title="Editar">✏️</a>
+          <% if (!t.is_default) { %>
+            <form method="POST" action="/templates/<%= t.id %>/default"><button title="Definir como padrão">⭐</button></form>
+            <form method="POST" action="/templates/<%= t.id %>/delete" onsubmit="return confirm('Excluir este template?')"><button title="Excluir">🗑️</button></form>
+          <% } %>
+        </div>
       </div>
       <pre class="template-code"><%= t.content %></pre>
-      <div class="actions-inline">
-        <a href="/templates?edit=<%= t.id %>#form" title="Editar">✏️</a>
-        <% if (!t.is_default) { %>
-          <form method="POST" action="/templates/<%= t.id %>/default"><button title="Definir como padrão">⭐</button></form>
-          <form method="POST" action="/templates/<%= t.id %>/delete" onsubmit="return confirm('Excluir este template?')"><button title="Excluir">🗑️</button></form>
-        <% } %>
-      </div>
     </div>
   <% }) %>
 </div>

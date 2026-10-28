@@ -11,5 +11,6 @@ router.use('/grupos', require('./groups').pages);
 router.use('/api/groups', require('./groups').api);
 router.use('/agendamentos', require('./schedules').pages);
 router.use('/api/schedules', require('./schedules').api);
+router.use('/logs', require('./logs'));
 
 module.exports = router;

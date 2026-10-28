@@ -27,37 +27,41 @@
       <div style="margin-top:16px"><a href="/promocoes" class="btn btn-primary">🚀 Gerar Promoção</a></div>
     </div>
   <% } else { %>
-    <table>
-      <thead><tr><th>Promoção</th><th>Grupos</th><th>Agendado para</th><th>Status</th><th class="text-right">Ações</th></tr></thead>
-      <tbody>
-        <% schedules.forEach(s => { const [label, cls] = labels[s.status] || [s.status, 'off']; %>
-          <tr>
-            <td>
-              <div class="sched-promo">
-                <% if (s.image_url) { %><img src="<%= s.image_url %>" alt=""><% } %>
-                <div><strong><%= s.title || '(sem título)' %></strong><br><a class="small" href="<%= s.url %>" target="_blank">abrir link</a></div>
-              </div>
-            </td>
-            <td>
-              <% s.groups.forEach(g => { %><span class="chip"><%= g.platform === 'whatsapp' ? '🟢' : '🔵' %> <%= g.name %></span><% }) %>
-              <% if (!s.groups.length) { %><span class="muted small">grupos removidos</span><% } %>
-            </td>
-            <td><%= fmt(s.scheduled_at) %><% if (s.sent_at) { %><br><span class="muted small">enviado <%= s.sent_at %></span><% } %></td>
-            <td>
-              <span class="pill <%= cls %>"><%= label %></span>
-              <% if (s.report) { const ok = s.report.filter(r => r.ok).length; %><br><span class="muted small"><%= ok %>/<%= s.report.length %> grupo(s)</span><% } %>
-              <% if (s.error) { %><br><span class="warn small"><%= s.error %></span><% } %>
-            </td>
-            <td class="text-right actions-inline">
-              <% if (s.status === 'pending') { %>
-                <form method="POST" action="/agendamentos/<%= s.id %>/cancel" onsubmit="return confirm('Cancelar este agendamento?')"><button title="Cancelar">⛔</button></form>
-              <% } %>
-              <form method="POST" action="/agendamentos/<%= s.id %>/delete" onsubmit="return confirm('Excluir do histórico?')"><button title="Excluir">🗑️</button></form>
-            </td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+    <div class="table-wrap">
+      <table class="schedules-table">
+        <thead><tr><th>Promoção</th><th>Grupos</th><th>Agendado para</th><th>Status</th><th class="text-right">Ações</th></tr></thead>
+        <tbody>
+          <% schedules.forEach(s => { const [label, cls] = labels[s.status] || [s.status, 'off']; %>
+            <tr>
+              <td class="col-promo">
+                <div class="sched-promo">
+                  <% if (s.image_url) { %><img src="<%= s.image_url %>" alt=""><% } %>
+                  <div><strong><%= s.title || '(sem título)' %></strong><br><a class="small" href="<%= s.url %>" target="_blank">abrir link</a></div>
+                </div>
+              </td>
+              <td class="col-groups">
+                <% s.groups.forEach(g => { %><span class="chip"><%= g.platform === 'whatsapp' ? '🟢' : '🔵' %> <%= g.name %></span><% }) %>
+                <% if (!s.groups.length) { %><span class="muted small">grupos removidos</span><% } %>
+              </td>
+              <td class="col-time"><%= fmt(s.scheduled_at) %><% if (s.sent_at) { %><br><span class="muted small">enviado <%= fmt(s.sent_at) %></span><% } %></td>
+              <td class="col-status">
+                <span class="pill <%= cls %>"><%= label %></span>
+                <% if (s.report) { const ok = s.report.filter(r => r.ok).length; %><br><span class="muted small"><%= ok %>/<%= s.report.length %> grupo(s)</span><% } %>
+                <% if (s.error) { %><br><span class="warn small"><%= s.error %></span><% } %>
+              </td>
+              <td class="col-actions">
+                <div class="actions-inline">
+                  <% if (s.status === 'pending') { %>
+                    <form method="POST" action="/agendamentos/<%= s.id %>/cancel" onsubmit="return confirm('Cancelar este agendamento?')"><button title="Cancelar">⛔</button></form>
+                  <% } %>
+                  <form method="POST" action="/agendamentos/<%= s.id %>/delete" onsubmit="return confirm('Excluir do histórico?')"><button title="Excluir">🗑️</button></form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
 </div>
 

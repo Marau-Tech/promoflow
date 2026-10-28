@@ -1,10 +1,11 @@
 <aside class="sidebar">
   <div class="brand">⚡ PromoFlow</div>
   <nav>
+    <a href="/" class="<%= currentPath === '/' ? 'active' : '' %>">🏠 Início</a>
     <a href="/promocoes" class="<%= currentPath.startsWith('/promocoes') ? 'active' : '' %>">🚀 Gerar Promoção</a>
-    <a href="/cupons" class="<%= currentPath.startsWith('/cupons') ? 'active' : '' %>">🎟️ Meus Cupons</a>
-    <a href="/templates" class="<%= currentPath.startsWith('/templates') ? 'active' : '' %>">📝 Templates</a>
-    <a href="/agendamentos" class="<%= currentPath.startsWith('/agendamentos') ? 'active' : '' %>">🗓️ Agendamentos</a>
     <a href="/grupos" class="<%= currentPath.startsWith('/grupos') ? 'active' : '' %>">👥 Grupos</a>
+    <a href="/agendamentos" class="<%= currentPath.startsWith('/agendamentos') ? 'active' : '' %>">🗓️ Agendamentos</a>
+    <a href="/logs" class="<%= currentPath.startsWith('/logs') ? 'active' : '' %>">📋 Logs</a>
+    <a href="/templates" class="<%= currentPath.startsWith('/templates') ? 'active' : '' %>">🧩 Templates</a>
   </nav>
 </aside>

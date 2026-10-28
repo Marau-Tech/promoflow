@@ -91,6 +91,12 @@
       });
       results.innerHTML = '';
       generatedIds = [];
+      if (linksEl) {
+        linksEl.innerHTML = '';
+        addLinkRow();
+      }
+      storeSelect.value = '';
+      storeManuallySet = false;
       list.forEach((r, i) => {
         if (r.ok) {
           generatedIds.push(r.promotion.id);
@@ -121,11 +127,12 @@
     card.querySelector('.store-badge').textContent = p.store_label;
 
     const cp = card.querySelector('[name=coupon_id]');
-    cp.innerHTML = `<option value="">Nenhum cupom</option>` + p.available_coupons.map(c => `<option value="${c.id}">${c.code}</option>`).join('');
+    cp.innerHTML = `<option value="">Nenhum</option>` + p.available_coupons.map(c => `<option value="${c.id}">${c.code}</option>`).join('');
     const sl = card.querySelector('[name=slogan_id]');
     sl.innerHTML = `<option value="">Nenhum</option>` + slogans.map(s => `<option value="${s.id}">${s.text}</option>`).join('');
 
     fill(card, p);
+    card.querySelector('[name=slogan_id]').value = '';
 
     let timer;
     card.querySelectorAll('input[name], select[name]').forEach(el => {
@@ -171,7 +178,15 @@
     });
     picker.querySelector('.doSend')?.addEventListener('click', async ev => {
       ev.target.disabled = true;
-      try { reportToast((await api(`/api/promotions/${p.id}/send`, 'POST', { groupIds: selectedIds() })).report); }
+      try {
+        const res = await api(`/api/promotions/${p.id}/send`, 'POST', { groupIds: selectedIds() });
+        reportToast(res.report);
+        // Limpa o card após envio
+        card.remove();
+        generatedIds = generatedIds.filter(id => id !== p.id);
+        const batch = document.getElementById('batchPanel');
+        if (batch && !document.querySelectorAll('.promo-card').length) batch.classList.add('hidden');
+      }
       catch (err) { toast(err.message, 'err'); }
       finally { ev.target.disabled = false; }
     });
@@ -254,6 +269,11 @@
     try {
       await api('/api/schedules', 'POST', { promotionId: scheduling.promotionId, groupIds: scheduling.groupIds, scheduledAt: d.toISOString() });
       closeModal();
+      // Remove card
+      const card = document.querySelector(`.promo-card[data-id="${scheduling.promotionId}"]`);
+      if (card) card.remove();
+      generatedIds = generatedIds.filter(id => id !== scheduling.promotionId);
+      if (!document.querySelectorAll('.promo-card').length) document.getElementById('batchPanel')?.classList.add('hidden');
       toast('Agendamento criado! Veja em Agendamentos.');
     } catch (err) { toast(err.message, 'err'); }
     finally { ev.target.disabled = false; }

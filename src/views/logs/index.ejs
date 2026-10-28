@@ -1,0 +1,41 @@
+<div class="page-header">
+  <div>
+    <h1>Logs</h1>
+    <p class="muted">Histórico de envios, falhas e erros relevantes.</p>
+  </div>
+  <form method="GET" action="/logs">
+    <select name="status" onchange="this.form.submit()">
+      <option value="">Todos</option>
+      <option value="sent" <%= status === 'sent' ? 'selected' : '' %>>Sucesso</option>
+      <option value="failed" <%= status === 'failed' ? 'selected' : '' %>>Falhas</option>
+    </select>
+  </form>
+</div>
+
+<div class="card">
+  <% if (!logs.length) { %>
+    <div class="empty">📋
+      <p>Nenhum log encontrado</p>
+      <small>Os envios aparecem aqui assim que forem registrados.</small>
+    </div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="logs-table">
+        <thead><tr><th>Data/Hora</th><th>Promoção</th><th>Grupo</th><th>Plataforma</th><th>Status</th><th>Erro</th></tr></thead>
+        <tbody>
+          <% const fmtLog = d => { try { const s = String(d).replace(' ','T'); return new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }); } catch(e){ return d; } }; %>
+          <% logs.forEach(l => { %>
+            <tr>
+              <td class="col-date"><%= fmtLog(l.sent_at) %></td>
+              <td class="col-promo"><div class="log-promo"><strong><%= l.promo_title || ('#' + l.promotion_id) %></strong></div></td>
+              <td class="col-group"><div class="log-group"><%= l.group_name || ('#' + l.group_id) %></div></td>
+              <td class="col-platform"><span class="chip nowrap"><%= l.platform === 'whatsapp' ? '🟢' : '🔵' %> <%= l.platform || '-' %></span></td>
+              <td class="col-status"><span class="pill <%= l.status === 'sent' ? 'ok' : 'err' %>"><%= l.status === 'sent' ? 'Enviado' : 'Falhou' %></span></td>
+              <td class="col-err"><% if (l.error) { %><div class="log-err"><span class="warn small"><%= l.error %></span></div><% } else { %><span class="muted small">-</span><% } %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
