@@ -52,7 +52,7 @@
             </form>
           </td>
           <td class="text-right actions-inline">
-            <form method="POST" action="/grupos/<%= g.id %>/delete" onsubmit="return confirm('Remover grupo?')"><button>🗑️</button></form>
+            <form method="POST" action="/grupos/<%= g.id %>/delete" data-confirm="Remover este grupo?" data-confirm-title="Remover grupo" data-confirm-text="Remover" data-confirm-danger="true"><button>🗑️</button></form>
           </td>
         </tr>
       <% }) %>

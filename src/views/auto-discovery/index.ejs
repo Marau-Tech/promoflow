@@ -1,0 +1,504 @@
+<% page = 'auto-discovery'; %>
+<%
+  const lastRun = (runs || [])[0];
+  let lastError = null;
+  if (lastRun && lastRun.errors_json) {
+    try { const arr = JSON.parse(lastRun.errors_json); lastError = Array.isArray(arr) ? arr[0] : String(arr); } catch (e) { lastError = lastRun.errors_json; }
+  }
+  const runTone = status => status === 'failed' ? 'err' : (status === 'success' || status === 'completed' ? 'ok' : 'star');
+  const candidateTone = status => {
+    if (['scheduled', 'generated', 'created'].includes(status)) return 'ok';
+    if (['skipped', 'duplicate', 'filtered'].includes(status)) return 'off';
+    if (['error', 'failed'].includes(status)) return 'err';
+    return 'star';
+  };
+%>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Descoberta Automática</h1>
+    <p class="page-subtitle">Busca os mais vendidos no Mercado Livre, gera as promoções e agenda 1 envio a cada <%= config.send_interval_minutes || 15 %> min, das <%= config.send_start_hour ?? 8 %>h às <%= config.send_end_hour ?? 21 %>h.</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" id="btn-run"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Buscar e agendar agora</button>
+  </div>
+</div>
+
+<section class="card auto-account-card">
+  <div class="auto-account">
+    <div class="auto-account-status">
+      <span class="auto-status-dot <%= mlConnected ? 'ok' : (mlConfigured ? 'warn' : 'off') %>"></span>
+      <div>
+        <div class="auto-account-title">Conta do Mercado Livre</div>
+        <% if (mlConnected) { %>
+          <p class="card-subtitle">Conectado. A descoberta usa a API oficial.</p>
+        <% } else if (!mlConfigured) { %>
+          <p class="card-subtitle">Não configurado. Preencha <code>ML_CLIENT_ID</code> e <code>ML_CLIENT_SECRET</code>.</p>
+        <% } else { %>
+          <p class="card-subtitle">Ainda não conectado. Autorize o app para liberar a busca.</p>
+        <% } %>
+      </div>
+    </div>
+    <div class="auto-account-uri">
+      <span>Redirect URI</span>
+      <code title="<%= mlRedirectUri %>"><%= mlRedirectUri %></code>
+    </div>
+    <div class="auto-account-actions">
+      <% if (mlConnected) { %>
+        <span class="pill ok">Conectado</span>
+        <button class="btn btn-danger" id="btn-ml-disconnect" type="button">Desconectar</button>
+      <% } else if (mlConfigured) { %>
+        <a class="btn btn-primary" href="/ml/connect">Conectar Mercado Livre</a>
+      <% } else { %>
+        <span class="pill off">Não configurado</span>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+<% if (mlConnectedFlag) { %>
+  <div class="alert alert-success"><strong>Mercado Livre conectado com sucesso.</strong></div>
+<% } %>
+<% if (mlError) { %>
+  <div class="alert alert-danger"><strong>Não foi possível conectar ao Mercado Livre:</strong><p><%= mlError %></p></div>
+<% } %>
+<% if (resendError) { %>
+  <div class="alert alert-danger"><strong>Não foi possível reagendar:</strong> <%= resendError %></div>
+<% } %>
+<% if (resendScheduled !== null) { %>
+  <div class="alert alert-success">
+    <strong><%= resendScheduled %> envio(s) reagendado(s).</strong>
+    <% if (resendSkipped) { %> <%= resendSkipped %> oferta(s) ignorada(s) por já estar(em) pendente(s) ou não existir(em) mais.<% } %>
+    <a href="/agendamentos">Ver agendamentos</a>
+  </div>
+<% } %>
+<% if (lastRun && lastRun.status === 'failed' && lastError) { %>
+  <div class="alert alert-warn">
+    <strong>Última execução falhou:</strong>
+    <p><%= lastError %></p>
+    <span>Dica: conecte sua conta acima para liberar a busca automática pela API oficial.</span>
+  </div>
+<% } %>
+
+<section class="card auto-config">
+  <div class="card-header">
+    <div>
+      <h2 class="card-title">Configuração</h2>
+      <p class="card-subtitle">Defina o que buscar, quando enviar e para onde publicar.</p>
+    </div>
+  </div>
+
+  <form id="form-config" class="auto-form">
+    <div class="auto-section">
+      <div class="auto-section-head">
+        <div>
+          <h3>Automação</h3>
+          <p>Controle as execuções e o volume de ofertas por rodada.</p>
+        </div>
+      </div>
+      <div class="auto-grid">
+        <label class="field">
+          <span>Habilitado</span>
+          <select name="enabled">
+            <option value="true" <%= config.enabled === true || config.enabled === 'true' ? 'selected' : '' %>>Sim</option>
+            <option value="false" <%= config.enabled === false || config.enabled === 'false' ? 'selected' : '' %>>Não</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Enviar automaticamente</span>
+          <select name="auto_send">
+            <option value="true" <%= config.auto_send === true || config.auto_send === 'true' ? 'selected' : '' %>>Sim, agendar envios</option>
+            <option value="false" <%= config.auto_send === false || config.auto_send === 'false' ? 'selected' : '' %>>Não, só gerar</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Máximo por execução</span>
+          <input name="max_per_run" type="number" min="1" max="50" value="<%= config.max_per_run || 20 %>">
+        </label>
+        <label class="field">
+          <span>Intervalo entre buscas (min)</span>
+          <input name="interval_minutes" type="number" min="5" max="240" value="<%= config.interval_minutes || 30 %>">
+        </label>
+      </div>
+    </div>
+
+    <div class="auto-section">
+      <div class="auto-section-head">
+        <div>
+          <h3>Link de afiliado</h3>
+          <p>Cada produto recebe o próprio meli.la. Sem sessão válida, o link do produto sai com a sua etiqueta (matt_word/matt_tool).</p>
+        </div>
+      </div>
+      <div class="auto-grid">
+        <label class="field">
+          <span>Etiqueta (matt_word)</span>
+          <input name="affiliate_tag" type="text" placeholder="ex.: minhaetiqueta" value="<%= config.affiliate_tag || '' %>">
+          <small class="hint">A "Etiqueta em uso" do Linkbuilder no painel de afiliados.</small>
+        </label>
+        <label class="field">
+          <span>ID da ferramenta (matt_tool)</span>
+          <input name="affiliate_tool" type="text" inputmode="numeric" placeholder="ex.: 12345678" value="<%= config.affiliate_tool || '' %>">
+          <small class="hint">Aparece como matt_tool= quando você abre um meli.la seu.</small>
+        </label>
+        <label class="field full">
+          <span>Cookies da sessão do Mercado Livre <small id="ml-session-status" class="<%= config.has_ml_session ? 'session-ok' : 'muted' %>"><%= config.has_ml_session ? '✓ Sessão salva' : 'Nenhuma sessão salva' %></small></span>
+          <textarea name="ml_session_cookies" rows="3" autocomplete="off" spellcheck="false" placeholder="<%= config.has_ml_session ? 'Sessão salva — cole novos cookies só para substituir' : 'Cole aqui o cabeçalho Cookie de mercadolivre.com.br' %>"></textarea>
+          <small class="hint">Usados só para gerar o meli.la pelo Linkbuilder. No navegador logado, abra /afiliados/linkbuilder, F12 → Rede → qualquer requisição → copie o valor do cabeçalho "Cookie".</small>
+        </label>
+        <% if (config.has_ml_session) { %>
+          <label class="checkbox-inline full"><input type="checkbox" name="clear_ml_session" value="true"> Remover sessão salva</label>
+        <% } %>
+        <label class="field full">
+          <span>Link padrão (último recurso)</span>
+          <input name="affiliate_url" type="url" placeholder="https://meli.la/..." value="<%= config.affiliate_url || '' %>">
+          <small class="hint">Usado só quando o produto não tem meli.la nem etiqueta configurada. Não use o link de um produto específico.</small>
+        </label>
+        <div class="field full">
+          <button type="button" class="btn" id="btn-test-affiliate">Testar geração de meli.la</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="auto-section">
+      <div class="auto-section-head">
+        <div>
+          <h3>Janela de envio</h3>
+          <p>Os envios param no fim do dia e retomam no próximo horário de início.</p>
+        </div>
+      </div>
+      <div class="auto-grid auto-grid-3">
+        <label class="field">
+          <span>Intervalo entre envios (min)</span>
+          <input name="send_interval_minutes" type="number" min="1" max="240" value="<%= config.send_interval_minutes || 15 %>">
+        </label>
+        <label class="field">
+          <span>Começar a enviar às</span>
+          <input name="send_start_hour" type="number" min="0" max="23" value="<%= config.send_start_hour ?? 8 %>">
+        </label>
+        <label class="field">
+          <span>Parar de enviar às</span>
+          <input name="send_end_hour" type="number" min="1" max="24" value="<%= config.send_end_hour ?? 21 %>">
+        </label>
+      </div>
+      <p class="auto-note">Nada é agendado automaticamente para o dia seguinte. Promoções manuais continuam preservadas.</p>
+    </div>
+
+    <div class="auto-section">
+      <div class="auto-section-head">
+        <div>
+          <h3>Filtros de oferta</h3>
+          <p>Use zero para não limitar preço ou desconto.</p>
+        </div>
+      </div>
+      <div class="auto-grid auto-grid-5">
+        <label class="field">
+          <span>Desconto mínimo (%)</span>
+          <input name="min_discount" type="number" min="0" max="95" value="<%= config.min_discount || 0 %>">
+        </label>
+        <label class="field">
+          <span>Preço mínimo (R$)</span>
+          <input name="min_price" type="number" min="0" value="<%= config.min_price || 0 %>">
+        </label>
+        <label class="field">
+          <span>Preço máximo (R$)</span>
+          <input name="max_price" type="number" min="0" value="<%= config.max_price || 0 %>">
+        </label>
+        <label class="field">
+          <span>Ganhos Extras</span>
+          <select name="require_extra_gain">
+            <option value="false" <%= (config.require_extra_gain===false||config.require_extra_gain==='false')?'selected':''%>>Incluir todos</option>
+            <option value="true" <%= (config.require_extra_gain===true||config.require_extra_gain==='true')?'selected':''%>>Exigir</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Mais Vendidos</span>
+          <select name="require_most_sold">
+            <option value="false" <%= (config.require_most_sold===false||config.require_most_sold==='false')?'selected':''%>>Incluir todos</option>
+            <option value="true" <%= (config.require_most_sold===true||config.require_most_sold==='true')?'selected':''%>>Exigir</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="auto-section">
+      <div class="auto-section-head">
+        <div>
+          <h3>Grupos de destino</h3>
+          <p>Selecione os grupos que recebem as ofertas automáticas.</p>
+        </div>
+      </div>
+      <label class="field">
+        <span>Grupos para envio automático</span>
+        <select name="group_ids" multiple size="6">
+          <% groups.forEach(g => { %>
+            <option value="<%= g.id %>" <%= (config.group_ids||[]).includes(g.id) ? 'selected' : '' %>><%= g.name %> (<%= g.platform %>)</option>
+          <% }) %>
+        </select>
+        <small class="hint">Deixe vazio se quiser só gerar sem enviar.</small>
+      </label>
+    </div>
+
+    <div class="auto-submit">
+      <span class="muted">As alterações valem para as próximas execuções.</span>
+      <button class="btn btn-primary" type="submit">Salvar configuração</button>
+    </div>
+  </form>
+</section>
+
+<section class="card auto-runs">
+  <div class="card-header">
+    <div>
+      <h2 class="card-title">Últimas execuções</h2>
+      <p class="card-subtitle">Histórico das buscas automáticas mais recentes.</p>
+    </div>
+  </div>
+  <% if (!runs.length) { %>
+    <div class="empty auto-empty"><span>📭</span><p>Nenhuma execução ainda</p><small>Use “Buscar e agendar agora” para rodar a primeira busca.</small></div>
+  <% } else { %>
+    <div class="table-wrapper auto-runs-table">
+      <table class="table">
+        <thead><tr><th>#</th><th>Status</th><th>Encontrados</th><th>Filtrados</th><th>Gerados</th><th>Agendados</th><th>Enviados</th><th>Iniciado</th></tr></thead>
+        <tbody>
+          <% runs.forEach(r => { %>
+            <tr>
+              <td class="nowrap"><strong>#<%= r.id %></strong></td>
+              <td><span class="pill <%= runTone(r.status) %>"><%= r.status %></span></td>
+              <td><%= r.found %></td>
+              <td><%= r.filtered %></td>
+              <td><%= r.generated %></td>
+              <td><%= r.scheduled || 0 %></td>
+              <td><%= r.sent %></td>
+              <td class="nowrap"><%= r.started_at %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="card auto-candidates">
+  <div class="card-header">
+    <div>
+      <h2 class="card-title">Candidatos encontrados</h2>
+      <p class="card-subtitle">Mais vendidos + com indício de ganhos extras, ordenados por score.</p>
+    </div>
+  </div>
+
+  <form id="resend-form" method="POST" action="/descobrir/resend">
+    <div class="auto-resend">
+      <div class="auto-resend-head">
+        <p>Selecione ofertas já geradas para reagendar o envio aos grupos corretos. O envio respeita o intervalo de <%= config.send_interval_minutes || 15 %> min e a janela das <%= config.send_start_hour ?? 8 %>h às <%= config.send_end_hour ?? 21 %>h.</p>
+        <div class="actions">
+          <span class="badge" id="cand-count">0 selecionadas</span>
+          <button type="submit" class="btn btn-primary" id="btn-resend">🗓️ Reagendar selecionadas</button>
+        </div>
+      </div>
+      <div class="group-picker auto-resend-groups">
+        <strong>Grupos de destino</strong>
+        <% if (!groups.length) { %><p class="warn">Nenhum grupo cadastrado. <a href="/grupos">Conectar</a></p><% } %>
+        <% groups.forEach(g => { %>
+          <label class="checkbox"><input type="checkbox" class="resendGroup" name="groupIds" value="<%= g.id %>"> <%= g.platform === 'whatsapp' ? '🟢' : '🔵' %> <%= g.name %></label>
+        <% }) %>
+      </div>
+    </div>
+
+    <% if (!candidates.length) { %>
+      <div class="empty auto-empty"><span>🔎</span><p>Nenhum candidato encontrado</p><small>Rode uma busca para popular a lista de ofertas.</small></div>
+    <% } else { %>
+      <div class="table-wrapper auto-candidates-table">
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="cand-all" aria-label="Selecionar todas"></th>
+              <th>Produto</th>
+              <th>Preço</th>
+              <th>Desconto</th>
+              <th>Sinais</th>
+              <th>Score</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% candidates.forEach(c => { %>
+              <tr>
+                <td class="col-check"><input type="checkbox" class="cand-check" name="promotionIds" value="<%= c.promotion_id || '' %>" <%= c.promotion_id ? '' : 'disabled' %> aria-label="Selecionar oferta"></td>
+                <td class="auto-product-cell">
+                  <div class="row-title" title="<%= c.title || '' %>"><%= c.title || '-' %></div>
+                  <div class="auto-product-meta">
+                    <a href="<%= c.final_url || c.url %>" target="_blank" class="link">Ver no ML</a>
+                    <span>•</span>
+                    <span>Visto em <%= c.seen_at %></span>
+                  </div>
+                </td>
+                <td class="nowrap">
+                  <strong><%= c.price ? 'R$ ' + c.price.toFixed(2).replace('.', ',') : '—' %></strong>
+                  <% if (c.original_price) { %><div class="row-sub">De R$ <%= c.original_price.toFixed(2).replace('.', ',') %></div><% } %>
+                </td>
+                <td>
+                  <% if (c.discount_percent) { %><span class="pill ok"><%= c.discount_percent %>%</span><% } else { %><span class="muted">—</span><% } %>
+                </td>
+                <td>
+                  <div class="auto-flags">
+                    <% if (c.is_most_sold) { %><span class="pill star">Mais vendido</span><% } %>
+                    <% if (c.has_extra_gain) { %><span class="pill ok">Ganhos extras</span><% } %>
+                    <% if (!c.is_most_sold && !c.has_extra_gain) { %><span class="muted">—</span><% } %>
+                  </div>
+                </td>
+                <td><span class="auto-score"><%= c.score %></span></td>
+                <td><span class="pill <%= candidateTone(c.status) %>"><%= c.status %></span></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </form>
+</section>
+
+<script>
+window.AUTO_DISCOVERY_CONFIG = {
+  sendInterval: <%= Number(config.send_interval_minutes) || 15 %>,
+  startHour: <%= Number(config.send_start_hour ?? 8) %>,
+  endHour: <%= Number(config.send_end_hour ?? 21) %>,
+};
+const btnMlDisconnect = document.getElementById('btn-ml-disconnect');
+if (btnMlDisconnect) {
+  btnMlDisconnect.addEventListener('click', async () => {
+    const ok = await PFUI.confirm({
+      title: 'Desconectar Mercado Livre',
+      message: 'A conta será desconectada e a descoberta automática deixará de funcionar até você conectar novamente.',
+      confirmText: 'Desconectar',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    await fetch('/ml/disconnect', { method: 'POST', headers: { Accept: 'application/json' } });
+    location.reload();
+  });
+}
+
+async function saveConfigForm(form) {
+  const fd = new FormData(form);
+  const data = {};
+  data.enabled = fd.get('enabled');
+  data.auto_send = fd.get('auto_send');
+  data.affiliate_url = String(fd.get('affiliate_url') || '').trim();
+  data.affiliate_tag = String(fd.get('affiliate_tag') || '').trim();
+  data.affiliate_tool = String(fd.get('affiliate_tool') || '').trim();
+  data.ml_session_cookies = String(fd.get('ml_session_cookies') || '').trim();
+  data.clear_ml_session = fd.get('clear_ml_session') === 'true';
+  data.max_per_run = Number(fd.get('max_per_run')) || 20;
+  data.interval_minutes = Number(fd.get('interval_minutes')) || 30;
+  data.send_interval_minutes = Number(fd.get('send_interval_minutes')) || 15;
+  data.send_start_hour = Number(fd.get('send_start_hour'));
+  data.send_end_hour = Number(fd.get('send_end_hour'));
+  data.min_discount = fd.get('min_discount') === '' ? 0 : Number(fd.get('min_discount'));
+  data.min_price = fd.get('min_price') === '' ? 0 : Number(fd.get('min_price'));
+  data.max_price = fd.get('max_price') === '' ? 0 : Number(fd.get('max_price'));
+  data.require_extra_gain = fd.get('require_extra_gain') === 'true';
+  data.require_most_sold = fd.get('require_most_sold') === 'true';
+  data.group_ids = Array.from(form.querySelector('[name=group_ids]').selectedOptions).map(o => Number(o.value));
+  const res = await fetch('/api/descobrir/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  const json = await res.json();
+  if (!res.ok || json.error) {
+    await PFUI.alert({ title: 'Erro ao salvar', message: json.error || 'Não foi possível salvar a configuração.', tone: 'danger' });
+    return false;
+  }
+  // Os cookies não voltam para a tela; só o indicador mostra que estão salvos.
+  const saved = Boolean(json.config?.has_ml_session);
+  const textarea = form.querySelector('[name=ml_session_cookies]');
+  textarea.value = '';
+  textarea.placeholder = saved
+    ? 'Sessão salva — cole novos cookies só para substituir'
+    : 'Cole aqui o cabeçalho Cookie de mercadolivre.com.br';
+  const status = document.getElementById('ml-session-status');
+  status.textContent = saved ? '✓ Sessão salva' : 'Nenhuma sessão salva';
+  status.className = saved ? 'session-ok' : 'muted';
+  return true;
+}
+
+document.getElementById('form-config').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (await saveConfigForm(e.target)) {
+    await PFUI.alert({ title: 'Configuração salva', message: 'As novas configurações já estão valendo.' });
+  }
+});
+
+document.getElementById('btn-test-affiliate').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-test-affiliate');
+  btn.disabled = true;
+  try {
+    // Salva antes para o teste usar o que está no formulário.
+    if (!await saveConfigForm(document.getElementById('form-config'))) return;
+    const res = await fetch('/api/descobrir/affiliate/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const json = await res.json();
+    if (json.ok) {
+      await PFUI.alert({ title: 'meli.la gerado', message: json.short_url });
+    } else {
+      const fallback = json.tracked_url ? `\n\nEnquanto isso, os envios usam: ${json.tracked_url}` : '';
+      await PFUI.alert({ title: 'Não foi possível gerar o meli.la', message: (json.error || 'Erro desconhecido.') + fallback, tone: 'danger' });
+    }
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-run').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  btn.textContent = 'Rodando...';
+  try {
+    const res = await fetch('/api/descobrir/run', { method:'POST' });
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      await PFUI.alert({
+        title: 'Não foi possível buscar ofertas',
+        message: json.error || 'Erro desconhecido.',
+        tone: 'danger',
+      });
+    } else if (!json.found) {
+      await PFUI.alert({
+        title: 'Nenhuma oferta nova',
+        message: 'Nenhuma oferta nova encontrada nesta execução. Tente novamente mais tarde.',
+      });
+    } else {
+      await PFUI.alert({
+        title: 'Busca concluída',
+        message: `Encontrados: ${json.found}\nFiltrados: ${json.filtered}\nGerados: ${json.generated}\nAgendados: ${json.scheduled || 0}`,
+      });
+      location.reload();
+    }
+  } catch (e) {
+    await PFUI.alert({ title: 'Erro inesperado', message: e.message, tone: 'danger' });
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Buscar e agendar agora';
+  }
+});
+
+(function () {
+  const checks = () => Array.from(document.querySelectorAll('.cand-check:not(:disabled)'));
+  const selected = () => checks().filter(el => el.checked);
+  const groupChecks = () => Array.from(document.querySelectorAll('.resendGroup'));
+  const all = document.getElementById('cand-all');
+  const count = document.getElementById('cand-count');
+  const btn = document.getElementById('btn-resend');
+  if (!all || !count || !btn) return;
+
+  function update() {
+    const chosen = selected().length;
+    count.textContent = `${chosen} selecionada${chosen === 1 ? '' : 's'}`;
+    btn.disabled = !chosen;
+    all.checked = chosen > 0 && chosen === checks().length;
+    all.indeterminate = chosen > 0 && chosen < checks().length;
+  }
+
+  all.addEventListener('change', () => {
+    checks().forEach(el => { el.checked = all.checked; });
+    update();
+  });
+  document.querySelectorAll('.cand-check').forEach(el => el.addEventListener('change', update));
+  groupChecks().forEach(el => el.addEventListener('change', update));
+
+  update();
+})();
+</script>

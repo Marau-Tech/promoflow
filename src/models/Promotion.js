@@ -3,6 +3,7 @@ const { db } = require('../config/database');
 const Promotion = {
   find(id) { return db.prepare('SELECT * FROM promotions WHERE id = ?').get(id); },
   recent(limit = 20) { return db.prepare('SELECT * FROM promotions ORDER BY created_at DESC LIMIT ?').all(limit); },
+  count() { return db.prepare('SELECT COUNT(*) AS c FROM promotions').get().c; },
   create(data) {
     const r = db.prepare(`
       INSERT INTO promotions (url, final_url, store, sku, title, original_price, price, currency, image_url, coupon_id, slogan_id, template_id, message)
@@ -27,6 +28,9 @@ const Promotion = {
       slogan_id: data.slogan_id || null, template_id: data.template_id || null, url: data.url, message: data.message || null,
     });
     return this.find(id);
+  },
+  setAffiliateUrl(id, url) {
+    db.prepare('UPDATE promotions SET affiliate_url = ? WHERE id = ?').run(url || null, id);
   },
   logSend({ promotion_id, group_id, status, error }) {
     db.prepare('INSERT INTO promotion_sends (promotion_id, group_id, status, error) VALUES (?, ?, ?, ?)')

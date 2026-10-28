@@ -1,0 +1,180 @@
+<%
+  const fmtWhen = value => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    const now = new Date();
+    const timeZone = 'America/Sao_Paulo';
+    const sameDay = date.toLocaleDateString('pt-BR', { timeZone }) ===
+      now.toLocaleDateString('pt-BR', { timeZone });
+    const time = date.toLocaleTimeString('pt-BR', { timeZone, hour: '2-digit', minute: '2-digit' });
+    if (sameDay) return `Hoje, ${time}`;
+    const day = date.toLocaleDateString('pt-BR', { timeZone, day: '2-digit', month: '2-digit' });
+    return `${day}, ${time}`;
+  };
+  const fmtLog = value => {
+    if (!value) return '—';
+    const date = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+  };
+  const levelLabel = { error: 'Erro', warn: 'Aviso', info: 'Info' };
+  const levelClass = { error: 'err', warn: 'star', info: 'ok' };
+%>
+
+<div class="page-header">
+  <div>
+    <h1>Início</h1>
+    <p class="muted">Visão geral da fila, dos envios e do que precisa de atenção agora.</p>
+  </div>
+  <div class="header-actions">
+    <a class="btn btn-light" href="/agendamentos">🗓️ Ver fila</a>
+    <a class="btn btn-primary" href="/promocoes">🚀 Gerar promoção</a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">Fila pendente</span>
+    <strong class="stat-value"><%= pendingTotal %></strong>
+    <span class="stat-foot"><%= pendingProducts %> produto(s) • <%= pendingCoupons %> lote(s) de cupons</span>
+  </div>
+  <div class="stat-card stat-info">
+    <span class="stat-label">Próximo envio</span>
+    <strong class="stat-value stat-value-time"><%= nextSend ? fmtWhen(nextSend.scheduled_at).replace('Hoje, ', '') : '—' %></strong>
+    <span class="stat-foot"><%= nextSend ? `${nextSend.type === 'coupon' ? 'Cupons' : 'Produto'} • ${nextSend.groups} grupo(s)` : 'Nenhum envio na fila' %></span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Enviados hoje</span>
+    <strong class="stat-value"><%= sentToday %></strong>
+    <span class="stat-foot"><%= productSentToday %> produto(s) • <%= couponSentToday %> lote(s) de cupons</span>
+  </div>
+  <div class="stat-card stat-error">
+    <span class="stat-label">Falhas hoje</span>
+    <strong class="stat-value"><%= failedToday %></strong>
+    <span class="stat-foot"><%= logStats.error %> erro(s) registrados em 24h</span>
+  </div>
+</div>
+
+<div class="card dashboard-queue">
+  <div class="card-header">
+    <div>
+      <h2 class="card-title">Próximos envios</h2>
+      <p class="card-subtitle">Produtos e lotes de cupons já intercalados na ordem real da fila.</p>
+    </div>
+    <a class="btn btn-ghost btn-xs" href="/agendamentos">Ver todos</a>
+  </div>
+
+  <% if (!queuePreview.length) { %>
+    <div class="empty dashboard-empty">🗓️
+      <p>Nada agendado no momento</p>
+      <small>Gere uma promoção ou agende cupons para começar.</small>
+    </div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="dashboard-table dash-queue-table">
+        <colgroup>
+          <col class="col-when">
+          <col class="col-type">
+          <col class="col-item">
+          <col class="col-groups">
+        </colgroup>
+        <thead><tr><th>Quando</th><th>Tipo</th><th>Item</th><th>Grupos</th></tr></thead>
+        <tbody>
+          <% queuePreview.forEach(item => { %>
+            <tr>
+              <td class="nowrap"><strong><%= fmtWhen(item.scheduled_at) %></strong></td>
+              <td><span class="pill <%= item.type === 'coupon' ? 'star' : 'ok' %>"><%= item.type === 'coupon' ? 'Cupom' : 'Produto' %></span></td>
+              <td>
+                <div class="row-title" title="<%= item.title %>"><%= item.title %></div>
+                <div class="row-sub" title="<%= item.detail %>"><%= item.detail %></div>
+              </td>
+              <td class="nowrap"><%= item.groups %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<div class="card dash-overview">
+  <div class="card-header">
+    <div>
+      <h2 class="card-title">Visão geral</h2>
+      <p class="card-subtitle">Números da operação e da descoberta automática.</p>
+    </div>
+  </div>
+
+  <div class="dash-kpis">
+    <div class="dash-kpi"><span>Promoções geradas</span><strong><%= promotionsTotal %></strong></div>
+    <div class="dash-kpi"><span>Cupons ML ativos</span><strong><%= activeCoupons %></strong></div>
+    <div class="dash-kpi"><span>Cupons ML na fila</span><strong><%= queuedCoupons %></strong></div>
+    <div class="dash-kpi"><span>Grupos ativos</span><strong><%= activeGroups %></strong></div>
+    <div class="dash-kpi"><span>Janela de envio</span><strong><%= sendStart %>h–<%= sendEnd %>h</strong><small>intervalo de <%= sendInterval %> min</small></div>
+    <div class="dash-kpi">
+      <span>Última descoberta</span>
+      <strong><%= lastRun ? lastRun.status : 'nunca' %></strong>
+      <small><%= lastRun ? `${lastRun.found} encontrados • ${lastRun.generated} gerados • ${lastRun.scheduled} agendados` : 'ainda não executou' %></small>
+    </div>
+  </div>
+
+  <div class="dash-links">
+    <a href="/descobrir">Descoberta automática</a>
+    <a href="/cupons/ml">Cupons ML</a>
+    <a href="/logs">Logs &amp; erros</a>
+  </div>
+</div>
+
+<div class="grid two dash-bottom">
+  <div class="card dash-panel">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title">Últimos erros</h2>
+        <p class="card-subtitle"><%= logStats.error %> erro(s) nas últimas 24h.</p>
+      </div>
+      <a class="btn btn-ghost btn-xs" href="/logs?level=error">Abrir logs</a>
+    </div>
+
+    <% if (!recentErrors.length) { %>
+      <div class="dash-empty-small">✅ Nenhum erro recente registrado.</div>
+    <% } else { %>
+      <div class="dash-list">
+        <% recentErrors.forEach(log => { %>
+          <div class="dash-list-item">
+            <span class="dash-list-icon err">!</span>
+            <div class="dash-list-copy">
+              <div class="dash-list-main" title="<%= log.message %>"><%= log.message %></div>
+              <div class="dash-list-meta"><%= log.category %> • <%= fmtLog(log.created_at) %></div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="card dash-panel">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title">Atividade recente</h2>
+        <p class="card-subtitle">Últimos eventos registrados no sistema.</p>
+      </div>
+    </div>
+
+    <% if (!logs.length) { %>
+      <div class="dash-empty-small">Nenhuma atividade registrada.</div>
+    <% } else { %>
+      <div class="dash-list">
+        <% logs.forEach(log => { %>
+          <div class="dash-list-item">
+            <span class="pill <%= levelClass[log.level] || 'off' %>"><%= levelLabel[log.level] || log.level %></span>
+            <div class="dash-list-copy">
+              <div class="dash-list-main" title="<%= log.message %>"><%= log.message %></div>
+              <div class="dash-list-meta"><%= log.category %> • <%= fmtLog(log.created_at) %></div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>

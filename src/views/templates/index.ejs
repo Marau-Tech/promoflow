@@ -19,7 +19,7 @@
           <a href="/templates?edit=<%= t.id %>#form" title="Editar">✏️</a>
           <% if (!t.is_default) { %>
             <form method="POST" action="/templates/<%= t.id %>/default"><button title="Definir como padrão">⭐</button></form>
-            <form method="POST" action="/templates/<%= t.id %>/delete" onsubmit="return confirm('Excluir este template?')"><button title="Excluir">🗑️</button></form>
+            <form method="POST" action="/templates/<%= t.id %>/delete" data-confirm="Excluir este template?" data-confirm-title="Excluir template" data-confirm-text="Excluir" data-confirm-danger="true"><button title="Excluir">🗑️</button></form>
           <% } %>
         </div>
       </div>
@@ -36,7 +36,8 @@
       <div class="field grow">
         <label>Conteúdo *</label>
         <textarea name="content" id="tplContent" rows="14" required><%= editing?.content || '' %></textarea>
-        <p class="hint">Variáveis: <code>{{title}}</code> <code>{{price}}</code> <code>{{original_price}}</code> <code>{{url}}</code> <code>{{store}}</code> <code>{{sku}}</code> <code>{{slogan}}</code> <code>{{discount_percent}}</code> <code>{{coupon.code}}</code> <code>{{coupon.label}}</code>.
+        <p class="hint">Variáveis: <code>{{title}}</code> <code>{{price}}</code> <code>{{price_with_coupon}}</code> <code>{{original_price}}</code> <code>{{url}}</code> <code>{{store}}</code> <code>{{sku}}</code> <code>{{slogan}}</code> <code>{{discount_percent}}</code> <code>{{coupon.code}}</code> <code>{{coupon.label}}</code>.
+        <code>{{price}}</code> já sai com o cupom aplicado quando o desconto vale; <code>{{price_with_coupon}}</code> fica vazio sem cupom.
         Use <code>{{#slogan}}...{{/slogan}}</code> para mostrar um trecho só quando houver valor. Formatação: <code>*negrito*</code> <code>~riscado~</code> <code>_itálico_</code>.</p>
       </div>
       <div class="field grow">
@@ -80,7 +81,7 @@
             </form>
           </td>
           <td class="text-right actions-inline">
-            <form method="POST" action="/slogans/<%= s.id %>/delete" onsubmit="return confirm('Excluir este slogan?')"><button>🗑️</button></form>
+            <form method="POST" action="/slogans/<%= s.id %>/delete" data-confirm="Excluir este slogan?" data-confirm-title="Excluir slogan" data-confirm-text="Excluir" data-confirm-danger="true"><button>🗑️</button></form>
           </td>
         </tr>
       <% }) %>

@@ -1,17 +1,32 @@
 <div class="page-header">
   <div>
     <h1>Agendamentos</h1>
-    <p class="muted">Esta tela é o seu painel de controle: aqui você acompanha tudo que já foi agendado. O agendamento em si não é criado aqui.</p>
+    <p class="muted">Acompanhe tudo que já foi agendado. Cancele ou exclua um por um na tabela, ou use as ações em massa no topo.</p>
   </div>
-  <form method="GET" action="/agendamentos">
-    <select name="status" onchange="this.form.submit()">
-      <option value="">Todos os status</option>
-      <option value="pending"   <%= status === 'pending'   ? 'selected' : '' %>>Pendentes (<%= counts.pending || 0 %>)</option>
-      <option value="sent"      <%= status === 'sent'      ? 'selected' : '' %>>Enviados (<%= counts.sent || 0 %>)</option>
-      <option value="failed"    <%= status === 'failed'    ? 'selected' : '' %>>Com falha (<%= counts.failed || 0 %>)</option>
-      <option value="cancelled" <%= status === 'cancelled' ? 'selected' : '' %>>Cancelados (<%= counts.cancelled || 0 %>)</option>
-    </select>
-  </form>
+  <div class="header-actions">
+    <form method="GET" action="/agendamentos">
+      <select name="status" onchange="this.form.submit()">
+        <option value="">Todos os status</option>
+        <option value="pending"   <%= status === 'pending'   ? 'selected' : '' %>>Pendentes (<%= counts.pending || 0 %>)</option>
+        <option value="sent"      <%= status === 'sent'      ? 'selected' : '' %>>Enviados (<%= counts.sent || 0 %>)</option>
+        <option value="failed"    <%= status === 'failed'    ? 'selected' : '' %>>Com falha (<%= counts.failed || 0 %>)</option>
+        <option value="cancelled" <%= status === 'cancelled' ? 'selected' : '' %>>Cancelados (<%= counts.cancelled || 0 %>)</option>
+      </select>
+    </form>
+    <form method="POST" action="/agendamentos/cancel-all"
+          data-confirm="Cancelar todos os <%= counts.pending || 0 %> agendamentos pendentes? Nenhuma mensagem será enviada e os cupons dos lotes voltam para a fila."
+          data-confirm-title="Cancelar todos"
+          data-confirm-text="Cancelar todos">
+      <button class="btn btn-light" <%= counts.pending ? '' : 'disabled' %>>⛔ Cancelar todos</button>
+    </form>
+    <form method="POST" action="/agendamentos/delete-all"
+          data-confirm="Excluir todos os <%= total %> registros de agendamento? Isso apaga o histórico e também os pendentes. Os cupons dos lotes voltam para a fila."
+          data-confirm-title="Excluir todos"
+          data-confirm-text="Excluir todos"
+          data-confirm-danger="true">
+      <button class="btn btn-danger" <%= total ? '' : 'disabled' %>>🗑️ Excluir todos</button>
+    </form>
+  </div>
 </div>
 
 <%
@@ -52,9 +67,9 @@
               <td class="col-actions">
                 <div class="actions-inline">
                   <% if (s.status === 'pending') { %>
-                    <form method="POST" action="/agendamentos/<%= s.id %>/cancel" onsubmit="return confirm('Cancelar este agendamento?')"><button title="Cancelar">⛔</button></form>
+                    <form method="POST" action="/agendamentos/<%= s.id %>/cancel" data-confirm="Cancelar este agendamento?" data-confirm-title="Cancelar agendamento" data-confirm-text="Cancelar"><button title="Cancelar">⛔</button></form>
                   <% } %>
-                  <form method="POST" action="/agendamentos/<%= s.id %>/delete" onsubmit="return confirm('Excluir do histórico?')"><button title="Excluir">🗑️</button></form>
+                  <form method="POST" action="/agendamentos/<%= s.id %>/delete" data-confirm="Excluir este agendamento do histórico?" data-confirm-title="Excluir agendamento" data-confirm-text="Excluir" data-confirm-danger="true"><button title="Excluir">🗑️</button></form>
                 </div>
               </td>
             </tr>
@@ -64,6 +79,52 @@
     </div>
   <% } %>
 </div>
+
+<% if (couponBatches && couponBatches.length) { %>
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h2 class="card-title">Lotes de cupons ML</h2>
+      <p class="card-subtitle">Envios de até 10 cupons por mensagem, intercalados com as promoções.</p>
+    </div>
+    <span class="badge"><%= couponBatches.length %> lote(s)</span>
+  </div>
+  <div class="table-wrap">
+    <table class="schedules-table">
+      <thead><tr><th>Lote</th><th>Grupos</th><th>Agendado para</th><th>Status</th><th class="text-right">Ações</th></tr></thead>
+      <tbody>
+        <% couponBatches.forEach(b => { const [label, cls] = labels[b.status] || [b.status, 'off']; %>
+          <tr>
+            <td class="col-promo">
+              <strong>Lote #<%= b.id %></strong>
+              <div class="row-sub"><%= b.codes.slice(0, 3).join(', ') || 'cupons' %><% if (b.codes.length > 3) { %> +<%= b.codes.length - 3 %><% } %></div>
+              <div class="muted small"><%= b.coupon_ids.length %> cupom(ns)</div>
+            </td>
+            <td class="col-groups">
+              <% b.groups.forEach(g => { %><span class="chip"><%= g.platform === 'whatsapp' ? '🟢' : '🔵' %> <%= g.name %></span><% }) %>
+              <% if (!b.groups.length) { %><span class="muted small">grupos removidos</span><% } %>
+            </td>
+            <td class="col-time"><%= fmt(b.scheduled_at) %><% if (b.sent_at) { %><br><span class="muted small">enviado <%= fmt(b.sent_at) %></span><% } %></td>
+            <td class="col-status">
+              <span class="pill <%= cls %>"><%= label %></span>
+              <% if (b.report) { const ok = b.report.filter(r => r.ok).length; %><br><span class="muted small"><%= ok %>/<%= b.report.length %> grupo(s)</span><% } %>
+              <% if (b.error) { %><br><span class="warn small"><%= b.error %></span><% } %>
+            </td>
+            <td class="col-actions">
+              <div class="actions-inline">
+                <% if (b.status === 'pending') { %>
+                  <form method="POST" action="/agendamentos/cupons/<%= b.id %>/cancel" data-confirm="Cancelar este lote de cupons? Os cupons voltam para a fila." data-confirm-title="Cancelar lote de cupons" data-confirm-text="Cancelar"><button title="Cancelar">⛔</button></form>
+                <% } %>
+                <form method="POST" action="/agendamentos/cupons/<%= b.id %>/delete" data-confirm="Excluir este lote de cupons do histórico? Os cupons pendentes voltam para a fila." data-confirm-title="Excluir lote de cupons" data-confirm-text="Excluir" data-confirm-danger="true"><button title="Excluir">🗑️</button></form>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
 
 <div class="card info-box">
   <strong>ℹ️ Onde eu agendo, então?</strong>

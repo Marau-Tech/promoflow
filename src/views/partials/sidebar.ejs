@@ -1,11 +1,52 @@
-<aside class="sidebar">
-  <div class="brand">⚡ PromoFlow</div>
+<%
+  const p = currentPath || '';
+  const isCouponsMl = p.startsWith('/cupons/ml');
+  const isCoupons = p.startsWith('/cupons') && !isCouponsMl;
+%>
+<aside class="sidebar" id="sidebar">
+  <a href="/" class="brand">
+    <span class="brand-mark">⚡</span>
+    <span class="brand-text">PromoFlow<small>Automação de ofertas</small></span>
+  </a>
+
   <nav>
-    <a href="/" class="<%= currentPath === '/' ? 'active' : '' %>">🏠 Início</a>
-    <a href="/promocoes" class="<%= currentPath.startsWith('/promocoes') ? 'active' : '' %>">🚀 Gerar Promoção</a>
-    <a href="/grupos" class="<%= currentPath.startsWith('/grupos') ? 'active' : '' %>">👥 Grupos</a>
-    <a href="/agendamentos" class="<%= currentPath.startsWith('/agendamentos') ? 'active' : '' %>">🗓️ Agendamentos</a>
-    <a href="/logs" class="<%= currentPath.startsWith('/logs') ? 'active' : '' %>">📋 Logs</a>
-    <a href="/templates" class="<%= currentPath.startsWith('/templates') ? 'active' : '' %>">🧩 Templates</a>
+    <span class="nav-section">Operação</span>
+    <a href="/" class="<%= p === '/' ? 'active' : '' %>">
+      <%- include('icon', { name: 'home' }) %><span>Início</span>
+    </a>
+    <a href="/promocoes" class="<%= p.startsWith('/promocoes') ? 'active' : '' %>">
+      <%- include('icon', { name: 'rocket' }) %><span>Gerar Promoção</span>
+    </a>
+    <a href="/descobrir" class="<%= p.startsWith('/descobrir') ? 'active' : '' %>">
+      <%- include('icon', { name: 'radar' }) %><span>Descoberta Automática</span>
+    </a>
+    <a href="/agendamentos" class="<%= p.startsWith('/agendamentos') ? 'active' : '' %>">
+      <%- include('icon', { name: 'calendar' }) %><span>Agendamentos</span>
+    </a>
+
+    <span class="nav-section">Conteúdo</span>
+    <a href="/grupos" class="<%= p.startsWith('/grupos') ? 'active' : '' %>">
+      <%- include('icon', { name: 'users' }) %><span>Grupos</span>
+    </a>
+    <a href="/cupons" class="<%= isCoupons ? 'active' : '' %>">
+      <%- include('icon', { name: 'ticket' }) %><span>Cupons</span>
+    </a>
+    <a href="/cupons/ml" class="<%= isCouponsMl ? 'active' : '' %>">
+      <%- include('icon', { name: 'tag' }) %><span>Cupons ML</span>
+    </a>
+    <a href="/templates" class="<%= p.startsWith('/templates') ? 'active' : '' %>">
+      <%- include('icon', { name: 'layers' }) %><span>Templates</span>
+    </a>
+
+    <span class="nav-section">Sistema</span>
+    <a href="/logs" class="<%= p.startsWith('/logs') ? 'active' : '' %>">
+      <%- include('icon', { name: 'activity' }) %><span>Logs &amp; Erros</span>
+      <% if (logErrors24h > 0) { %><span class="nav-badge" title="Erros nas últimas 24h"><%= logErrors24h > 99 ? '99+' : logErrors24h %></span><% } %>
+    </a>
   </nav>
+
+  <div class="sidebar-foot">
+    <strong><span class="dot"></span>PromoFlow ativo</strong>
+    Agendamentos, integrações e logs em um só lugar.
+  </div>
 </aside>

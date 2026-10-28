@@ -1,17 +1,34 @@
 const Schedule = require('../models/Schedule');
+const CouponBatch = require('../models/CouponBatch');
+const MLCoupon = require('../models/MLCoupon');
 const Promotion = require('../models/Promotion');
 const Group = require('../models/Group');
+const logger = require('../services/logger');
 
 const MAX_DAYS = 10;
 
 exports.index = (req, res) => {
   const status = ['pending', 'sent', 'failed', 'cancelled'].includes(req.query.status) ? req.query.status : null;
   const groups = Object.fromEntries(Group.all().map(g => [g.id, g]));
+  const couponCodes = Object.fromEntries(MLCoupon.all().map(c => [c.id, c.code]));
+  const scheduleCounts = Schedule.counts();
+  const couponCounts = CouponBatch.counts();
+  const counts = {};
+  for (const key of new Set([...Object.keys(scheduleCounts), ...Object.keys(couponCounts)])) {
+    counts[key] = (scheduleCounts[key] || 0) + (couponCounts[key] || 0);
+  }
+
   res.render('schedules/index', {
     title: 'Agendamentos',
     schedules: Schedule.all(status).map(s => ({ ...s, groups: s.group_ids.map(id => groups[id]).filter(Boolean) })),
+    couponBatches: CouponBatch.all(status).map(b => ({
+      ...b,
+      groups: b.group_ids.map(id => groups[id]).filter(Boolean),
+      codes: b.coupon_ids.map(id => couponCodes[id]).filter(Boolean),
+    })),
     status,
-    counts: Schedule.counts(),
+    counts,
+    total: Object.values(counts).reduce((sum, n) => sum + n, 0),
   });
 };
 
@@ -29,6 +46,7 @@ exports.create = (req, res, next) => {
     if (when.getTime() > Date.now() + MAX_DAYS * 86400000) return res.status(400).json({ error: `Máximo de ${MAX_DAYS} dias a partir de hoje.` });
 
     const schedule = Schedule.create({ promotion_id: promotion.id, group_ids: groupIds.map(Number), scheduled_at: when.toISOString() });
+    logger.info('agendamentos', 'Agendamento criado', { schedule_id: schedule.id, promotion_id: promotion.id, scheduled_at: when.toISOString() }, 'schedules');
     res.json({ schedule });
   } catch (err) { next(err); }
 };
@@ -58,9 +76,75 @@ exports.createBatch = (req, res, next) => {
       created.push(Schedule.create({ promotion_id: promotion.id, group_ids: groupIds.map(Number), scheduled_at: when }));
     });
 
+    logger.info('agendamentos', 'Agendamentos em lote criados', {
+      created: created.length,
+      first: created[0]?.scheduled_at,
+      last: created.at(-1)?.scheduled_at,
+      interval_minutes: interval,
+    }, 'schedules');
     res.json({ created: created.length, first: created[0]?.scheduled_at, last: created.at(-1)?.scheduled_at });
   } catch (err) { next(err); }
 };
 
-exports.cancel = (req, res) => { Schedule.cancel(Number(req.params.id)); res.redirect('/agendamentos'); };
-exports.remove = (req, res) => { Schedule.remove(Number(req.params.id)); res.redirect('/agendamentos'); };
+exports.cancel = (req, res) => {
+  Schedule.cancel(Number(req.params.id));
+  logger.info('agendamentos', 'Agendamento cancelado', { schedule_id: req.params.id }, 'schedules');
+  res.redirect('/agendamentos');
+};
+exports.remove = (req, res) => {
+  Schedule.remove(Number(req.params.id));
+  logger.info('agendamentos', 'Agendamento removido do histórico', { schedule_id: req.params.id }, 'schedules');
+  res.redirect('/agendamentos');
+};
+
+exports.cancelAll = (req, res) => {
+  const pendingBatches = CouponBatch.allPending();
+  const couponIds = pendingBatches.flatMap(b => b.coupon_ids);
+
+  const schedules = Schedule.cancelAll();
+  const batches = CouponBatch.cancelAll();
+  if (couponIds.length) MLCoupon.releaseQueued(couponIds);
+
+  logger.info('agendamentos', 'Todos os agendamentos pendentes cancelados', {
+    schedules,
+    coupon_batches: batches,
+    coupons_released: couponIds.length,
+  }, 'schedules');
+  res.redirect('/agendamentos');
+};
+
+exports.removeAll = (req, res) => {
+  const pendingBatches = CouponBatch.allPending();
+  const couponIds = pendingBatches.flatMap(b => b.coupon_ids);
+
+  const schedules = Schedule.removeAll();
+  const batches = CouponBatch.removeAll();
+  if (couponIds.length) MLCoupon.releaseQueued(couponIds);
+
+  logger.info('agendamentos', 'Todos os registros de agendamento foram excluídos', {
+    schedules,
+    coupon_batches: batches,
+    coupons_released: couponIds.length,
+  }, 'schedules');
+  res.redirect('/agendamentos');
+};
+
+exports.cancelCouponBatch = (req, res) => {
+  const batch = CouponBatch.find(Number(req.params.id));
+  if (batch && batch.status === 'pending') {
+    CouponBatch.cancel(batch.id);
+    MLCoupon.releaseQueued(batch.coupon_ids);
+    logger.info('cupons_ml', 'Lote de cupons cancelado', { batch_id: batch.id, coupons: batch.coupon_ids.length }, 'schedules');
+  }
+  res.redirect('/agendamentos');
+};
+
+exports.removeCouponBatch = (req, res) => {
+  const batch = CouponBatch.find(Number(req.params.id));
+  if (batch) {
+    if (batch.status === 'pending') MLCoupon.releaseQueued(batch.coupon_ids);
+    CouponBatch.remove(batch.id);
+    logger.info('cupons_ml', 'Lote de cupons removido do histórico', { batch_id: batch.id }, 'schedules');
+  }
+  res.redirect('/agendamentos');
+};

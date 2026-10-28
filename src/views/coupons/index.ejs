@@ -53,7 +53,7 @@
             <td><span class="pill <%= c.active ? 'ok' : 'off' %>"><%= c.active ? 'Ativo' : 'Inativo' %></span></td>
             <td class="text-right actions-inline">
               <a href="/cupons?edit=<%= c.id %>#form" title="Editar">✏️</a>
-              <form method="POST" action="/cupons/<%= c.id %>/delete" onsubmit="return confirm('Excluir este cupom?')"><button title="Excluir">🗑️</button></form>
+              <form method="POST" action="/cupons/<%= c.id %>/delete" data-confirm="Excluir este cupom?" data-confirm-title="Excluir cupom" data-confirm-text="Excluir" data-confirm-danger="true"><button title="Excluir">🗑️</button></form>
             </td>
           </tr>
         <% }) %>

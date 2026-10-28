@@ -3,15 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1220">
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
   <title><%= title %> · PromoFlow</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=<%= assetVersion.css %>">
+  <script src="/js/ui-dialogs.js?v=<%= assetVersion.js %>"></script>
 </head>
 <body>
+  <header class="mobile-bar">
+    <a href="/" class="brand-mobile"><span class="brand-mark">⚡</span> PromoFlow</a>
+    <button class="nav-toggle" id="navToggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+      <%- include('../partials/icon', { name: 'menu' }) %>
+    </button>
+  </header>
+
   <div class="app">
+    <div class="nav-backdrop" id="navBackdrop"></div>
     <%- include('../partials/sidebar') %>
     <main class="content"><%- body %></main>
   </div>
+
   <div id="toast" class="toast"></div>
   <script>
     window.toast = (msg, type = 'ok') => {
@@ -19,6 +30,32 @@
       t.textContent = msg; t.className = `toast show ${type}`;
       setTimeout(() => t.className = 'toast', 3500);
     };
+
+    (function () {
+      const body = document.body;
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('navBackdrop');
+      const toggle = document.getElementById('navToggle');
+
+      const close = () => {
+        body.classList.remove('nav-open');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      };
+      const open = () => {
+        body.classList.add('nav-open');
+        if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      };
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          if (body.classList.contains('nav-open')) close(); else open();
+        });
+      }
+      if (backdrop) backdrop.addEventListener('click', close);
+      if (sidebar) sidebar.querySelectorAll('a').forEach(a => a.addEventListener('click', close));
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+      window.addEventListener('resize', () => { if (window.innerWidth > 980) close(); });
+    })();
   </script>
 </body>
 </html>

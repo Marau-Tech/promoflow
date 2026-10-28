@@ -8,21 +8,29 @@ function money(value) {
   return Number(value).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-function buildContext({ promotion, coupon, slogan, storeLabel }) {
-  const discount = promotion.original_price && promotion.price && promotion.original_price > promotion.price
-    ? Math.round((1 - promotion.price / promotion.original_price) * 100)
+function buildContext({ promotion, coupon, slogan, storeLabel, pix = false }) {
+  const couponApplies = coupon && coupon.applied
+    && Number(coupon.price_with_coupon) > 0
+    && Number(coupon.price_with_coupon) < Number(promotion.price);
+  const finalPrice = couponApplies ? coupon.price_with_coupon : promotion.price;
+
+  const discount = promotion.original_price && finalPrice && promotion.original_price > finalPrice
+    ? Math.round((1 - finalPrice / promotion.original_price) * 100)
     : null;
 
   return {
     title: promotion.title || '',
-    price: money(promotion.price),
+    price: pix && !couponApplies ? `${money(finalPrice)} no Pix` : money(finalPrice),
+    pix_only: Boolean(pix && !couponApplies),
+    price_with_coupon: couponApplies ? money(coupon.price_with_coupon) : '',
     original_price: promotion.original_price ? money(promotion.original_price) : '',
     url: promotion.url,
     store: storeLabel || promotion.store || '',
     sku: promotion.sku || '',
     slogan: slogan?.text || '',
     discount_percent: discount,
-    coupon: coupon ? { code: coupon.code, label: Coupon.label(coupon), description: coupon.description || '' } : null,
+    coupon_applied: Boolean(couponApplies),
+    coupon: coupon && couponApplies ? { code: coupon.code, label: Coupon.label(coupon), description: coupon.description || '' } : null,
   };
 }
 

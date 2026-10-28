@@ -10,6 +10,7 @@ services:
       # Sobrescreve o .env: dentro do Docker, a Evolution é alcançada pelo nome do serviço
       - EVOLUTION_URL=http://evolution-api:8080
       - DB_PATH=/app/data/promoflow.db
+      - TZ=${TZ:-America/Sao_Paulo}
     volumes:
       - promoflow_data:/app/data
     depends_on:

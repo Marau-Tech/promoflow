@@ -1,0 +1,104 @@
+<% page = 'coupons'; %>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Meus Cupons</h1>
+    <p class="page-subtitle">Cadastre cupons por loja para associar às promoções</p>
+  </div>
+  <div class="header-actions">
+    <a class="btn btn-primary" href="/cupons/ml">🎟️ Cupons Mercado Livre</a>
+    <button class="btn btn-primary" id="btn-new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Novo Cupom</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Plataforma</th>
+          <th>Tipo</th>
+          <th>Valor</th>
+          <th>Descrição</th>
+          <th>Status</th>
+          <th style="text-align:right;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% coupons.forEach(c => { %>
+          <tr data-id="<%= c.id %>">
+            <td><strong><%= c.code %></strong></td>
+            <td><span class="badge"><%= c.platform %></span></td>
+            <td><%= c.discount_type === 'percent' ? 'Percentual' : 'Valor Fixo' %></td>
+            <td><%= c.discount_type === 'percent' ? c.discount_value + '%' : 'R$ ' + Number(c.discount_value).toFixed(2).replace('.', ',') %></td>
+            <td><%= c.description || '-' %></td>
+            <td><span class="badge <%= c.active ? 'badge-success' : '' %>"><%= c.active ? 'Ativo' : 'Inativo' %></span></td>
+            <td style="text-align:right; display:flex; gap:8px; justify-content:flex-end;">
+              <button class="btn btn-sm btn-ghost btn-edit">Editar</button>
+              <button class="btn btn-sm btn-ghost btn-toggle"><%= c.active ? 'Desativar' : 'Ativar' %></button>
+              <button class="btn btn-sm btn-ghost btn-delete">Excluir</button>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<dialog id="modal" class="modal">
+  <form method="dialog" class="modal-card">
+    <header class="modal-header">
+      <h3 class="modal-title">Cupom</h3>
+      <button class="icon-btn" value="cancel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </header>
+    <div class="modal-body">
+      <input type="hidden" id="coupon-id">
+      <div class="form-grid">
+        <label class="field"><span>Código</span><input id="coupon-code" required></label>
+        <label class="field"><span>Plataforma</span><select id="coupon-platform"><option value="mercadolivre">Mercado Livre</option><option value="shopee">Shopee</option><option value="amazon">Amazon</option><option value="all">Todas</option></select></label>
+        <label class="field"><span>Tipo</span><select id="coupon-type"><option value="percent">Percentual (%)</option><option value="fixed">Valor Fixo (R$)</option></select></label>
+        <label class="field"><span>Valor</span><input id="coupon-value" type="number" step="0.01" required></label>
+        <label class="field full"><span>Descrição</span><input id="coupon-desc"></label>
+      </div>
+    </div>
+    <footer class="modal-footer">
+      <button class="btn btn-ghost" value="cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save">Salvar</button>
+    </footer>
+  </form>
+</dialog>
+
+<script>
+const modal = document.getElementById('modal');
+document.getElementById('btn-new').onclick = () => {
+  document.getElementById('coupon-id').value = '';
+  document.getElementById('coupon-code').value = '';
+  document.getElementById('coupon-value').value = '';
+  document.getElementById('coupon-desc').value = '';
+  modal.showModal();
+};
+document.querySelectorAll('.btn-edit').forEach(btn => {
+  btn.onclick = () => {
+    const tr = btn.closest('tr');
+    document.getElementById('coupon-id').value = tr.dataset.id;
+    document.getElementById('coupon-code').value = tr.children[0].innerText.trim();
+    document.getElementById('coupon-platform').value = tr.children[1].innerText.trim().toLowerCase();
+    modal.showModal();
+  };
+});
+document.getElementById('btn-save').onclick = async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('coupon-id').value;
+  const payload = {
+    code: document.getElementById('coupon-code').value,
+    platform: document.getElementById('coupon-platform').value,
+    discount_type: document.getElementById('coupon-type').value,
+    discount_value: document.getElementById('coupon-value').value,
+    description: document.getElementById('coupon-desc').value,
+  };
+  const url = id ? '/api/cupons/' + id : '/api/cupons';
+  const method = id ? 'PUT' : 'POST';
+  await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  location.reload();
+};
+</script>
