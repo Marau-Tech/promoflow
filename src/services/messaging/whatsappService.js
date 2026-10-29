@@ -109,7 +109,27 @@ async function refreshState() {
     }
 
     if (st === 'connecting') {
-      state = { status: 'connecting', qr: state.qr || null };
+      const qrStale = Date.now() - lastQrAt > QR_TTL_MS;
+      const connectStale = Date.now() - lastConnectAt > QR_RETRY_MS;
+      if ((!state.qr || qrStale) && connectStale) {
+        lastConnectAt = Date.now();
+        try {
+          const { data: conn } = await http().get(`/instance/connect/${instance()}`);
+          if (conn?.base64) {
+            state = { status: 'qr', qr: conn.base64 };
+            lastQrAt = Date.now();
+            return;
+          }
+        } catch (err) {
+          logger.once('whatsapp-qr', 60000, 'warn', 'whatsapp',
+            'Falha ao obter QR Code', logger.errorMeta(err, { instance: instance() }), 'whatsapp');
+        }
+      }
+      if (state.qr && Date.now() - lastQrAt <= QR_TTL_MS) {
+        state = { status: 'qr', qr: state.qr };
+      } else {
+        state = { status: 'connecting', qr: null };
+      }
       return;
     }
 

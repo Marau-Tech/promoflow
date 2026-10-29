@@ -16,6 +16,41 @@ services:
     depends_on:
       evolution-api:
         condition: service_started
+      reset-groups:
+        condition: service_completed_successfully
+
+  reset-groups:
+    build: .
+    image: promoflow-promoflow
+    container_name: promoflow-reset-groups
+    restart: "no"
+    env_file: .env
+    environment:
+      - EVOLUTION_URL=http://evolution-api:8080
+      - DB_PATH=/app/data/promoflow.db
+      - TZ=${TZ:-America/Sao_Paulo}
+    volumes:
+      - promoflow_data:/app/data
+    command: node src/scripts/reset-groups.js
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      evolution-api:
+        condition: service_started
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    network_mode: host
+    user: "1000:1000"
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - promoflow
 
   evolution-api: 
     image: evoapicloud/evolution-api:latest
