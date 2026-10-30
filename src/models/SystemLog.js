@@ -8,33 +8,24 @@ function parseLimit(value, fallback = 200) {
   return Math.min(Math.floor(n), MAX_LIMIT);
 }
 
+function buildWhere(filters = {}) {
+  const where = [];
+  const params = [];
+  if (filters.level) { where.push('level = ?'); params.push(filters.level); }
+  if (filters.category) { where.push('category = ?'); params.push(filters.category); }
+  if (filters.q) {
+    where.push('(message LIKE ? OR details LIKE ? OR source LIKE ?)');
+    const like = `%${filters.q}%`;
+    params.push(like, like, like);
+  }
+  if (filters.fromEpoch) { where.push('created_epoch >= ?'); params.push(filters.fromEpoch); }
+  if (filters.toEpoch) { where.push('created_epoch <= ?'); params.push(filters.toEpoch); }
+  return { where, params };
+}
+
 const SystemLog = {
   all(filters = {}) {
-    const where = [];
-    const params = [];
-
-    if (filters.level) {
-      where.push('level = ?');
-      params.push(filters.level);
-    }
-    if (filters.category) {
-      where.push('category = ?');
-      params.push(filters.category);
-    }
-    if (filters.q) {
-      where.push('(message LIKE ? OR details LIKE ? OR source LIKE ?)');
-      const like = `%${filters.q}%`;
-      params.push(like, like, like);
-    }
-    if (filters.fromEpoch) {
-      where.push('created_epoch >= ?');
-      params.push(filters.fromEpoch);
-    }
-    if (filters.toEpoch) {
-      where.push('created_epoch <= ?');
-      params.push(filters.toEpoch);
-    }
-
+    const { where, params } = buildWhere(filters);
     let sql = 'SELECT * FROM system_logs';
     if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
     sql += ' ORDER BY created_epoch DESC, id DESC LIMIT ?';
@@ -48,17 +39,7 @@ const SystemLog = {
   },
 
   count(filters = {}) {
-    const where = [];
-    const params = [];
-    if (filters.level) { where.push('level = ?'); params.push(filters.level); }
-    if (filters.category) { where.push('category = ?'); params.push(filters.category); }
-    if (filters.q) {
-      where.push('(message LIKE ? OR details LIKE ? OR source LIKE ?)');
-      const like = `%${filters.q}%`;
-      params.push(like, like, like);
-    }
-    if (filters.fromEpoch) { where.push('created_epoch >= ?'); params.push(filters.fromEpoch); }
-    if (filters.toEpoch) { where.push('created_epoch <= ?'); params.push(filters.toEpoch); }
+    const { where, params } = buildWhere(filters);
     let sql = 'SELECT COUNT(*) AS c FROM system_logs';
     if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
     return db.prepare(sql).get(...params).c;
@@ -80,13 +61,15 @@ const SystemLog = {
     return out;
   },
 
-  countsByCategory() {
-    return db.prepare(`
+  countsByCategory(filters = {}) {
+    const { where, params } = buildWhere(filters);
+    let sql = `
       SELECT category, COUNT(*) AS count
       FROM system_logs
-      GROUP BY category
-      ORDER BY count DESC
-    `).all();
+    `;
+    if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
+    sql += ' GROUP BY category ORDER BY count DESC';
+    return db.prepare(sql).all(...params);
   },
 
   clearOlderThan(days = 30) {

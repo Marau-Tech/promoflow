@@ -269,10 +269,22 @@ async function checkExhausted() {
   return { exhausted, exhaustedNotified };
 }
 
+function cleanupCoupons() {
+  const removed = MLCoupon.removeOlderThanToday();
+  if (removed) {
+    logger.info('cupons_ml', 'Cupons de dias anteriores removidos', { removed }, 'coupon_discovery');
+  }
+  return removed;
+}
+
 async function runOnce(){
   try {
     const cfg = getConfig();
     if(cfg.enabled==='false') return {skipped:true};
+    // Mantém somente os cupons do dia para que a busca encontre novidades.
+    try { cleanupCoupons(); } catch(e) {
+      logger.warn('cupons_ml', 'Falha ao limpar cupons antigos', logger.errorMeta(e), 'coupon_discovery');
+    }
     const { coupons: list, expired } = await require('./mercadolivre').discover();
     let saved=0;
     for(const c of list){
@@ -348,4 +360,4 @@ function syncToCoupons(){
   }
 }
 
-module.exports = { runOnce, checkExhausted, enqueueCoupons, buildCouponMessage, buildCouponsListMessage, buildExhaustedMessage, applyCoupon, isCouponAvailable, couponIsExpired, syncToCoupons, BATCH_SIZE };
+module.exports = { runOnce, checkExhausted, cleanupCoupons, enqueueCoupons, buildCouponMessage, buildCouponsListMessage, buildExhaustedMessage, applyCoupon, isCouponAvailable, couponIsExpired, syncToCoupons, BATCH_SIZE };

@@ -35,13 +35,31 @@
 </div>
 
 <div class="card">
-  <h3>Grupos cadastrados</h3>
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">Grupos cadastrados</h3>
+      <p class="muted small">Selecione os grupos na tabela para excluir vários de uma vez.</p>
+    </div>
+    <% if (groups.length) { %>
+      <div class="actions-inline">
+        <span class="badge" id="group-count">0 selecionados</span>
+        <form id="bulk-delete-form" method="POST" action="/grupos/delete-selected"
+              data-confirm="Excluir os grupos selecionados? Esta ação não pode ser desfeita."
+              data-confirm-title="Excluir grupos"
+              data-confirm-text="Excluir"
+              data-confirm-danger="true">
+          <button class="btn btn-danger" id="btn-delete-selected" type="submit" disabled>🗑️ Excluir selecionados</button>
+        </form>
+      </div>
+    <% } %>
+  </div>
   <% if (!groups.length) { %><div class="empty">👥<p>Nenhum grupo importado ainda.</p></div><% } else { %>
   <table>
-    <thead><tr><th>Plataforma</th><th>Nome</th><th>ID</th><th>Ativo para envio</th><th class="text-right">Ações</th></tr></thead>
+    <thead><tr><th class="group-check-col"><input type="checkbox" id="group-all" aria-label="Selecionar todos"></th><th>Plataforma</th><th>Nome</th><th>ID</th><th>Ativo para envio</th><th class="text-right">Ações</th></tr></thead>
     <tbody>
       <% groups.forEach(g => { %>
         <tr>
+          <td class="group-check-col"><input type="checkbox" class="group-check" name="ids" value="<%= g.id %>" form="bulk-delete-form" aria-label="Selecionar grupo <%= g.name %>"></td>
           <td><%= g.platform === 'whatsapp' ? '🟢 WhatsApp' : '🔵 Telegram' %></td>
           <td><%= g.name %></td>
           <td class="muted small"><%= g.external_id %></td>
@@ -60,6 +78,31 @@
   </table>
   <% } %>
 </div>
+
+<script>
+(function () {
+  const checks = () => Array.from(document.querySelectorAll('.group-check'));
+  const all = document.getElementById('group-all');
+  const count = document.getElementById('group-count');
+  const btn = document.getElementById('btn-delete-selected');
+  if (!all || !count || !btn) return;
+
+  function update() {
+    const chosen = checks().filter(el => el.checked).length;
+    count.textContent = `${chosen} selecionado${chosen === 1 ? '' : 's'}`;
+    btn.disabled = !chosen;
+    all.checked = chosen > 0 && chosen === checks().length;
+    all.indeterminate = chosen > 0 && chosen < checks().length;
+  }
+
+  all.addEventListener('change', () => {
+    checks().forEach(el => { el.checked = all.checked; });
+    update();
+  });
+  checks().forEach(el => el.addEventListener('change', update));
+  update();
+})();
+</script>
 
 <% if (whatsappEnabled && whatsapp.status !== 'ready') { %>
 <script>

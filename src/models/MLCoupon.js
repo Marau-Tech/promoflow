@@ -77,6 +77,9 @@ const MLCoupon = {
     const placeholders = list.map(() => '?').join(',');
     try { db.prepare(`UPDATE ml_coupons SET exhausted_notified_at=datetime('now','localtime') WHERE id IN (${placeholders})`).run(...list); } catch (e) {}
   },
+  removeOlderThanToday() {
+    return db.prepare("DELETE FROM ml_coupons WHERE created_at < date('now','localtime','start of day')").run().changes;
+  },
   logPublish({ ml_coupon_id, group_ids, message, status, report_json }) {
     try { db.prepare('INSERT INTO ml_coupon_publish_logs (ml_coupon_id, group_ids, message, status, report_json) VALUES (?,?,?,?,?)').run(ml_coupon_id, JSON.stringify(group_ids||[]), message, status, report_json||null); } catch(e){}
   },

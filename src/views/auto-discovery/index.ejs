@@ -12,6 +12,7 @@
     if (['error', 'failed'].includes(status)) return 'err';
     return 'star';
   };
+  const candidateTotal = Object.values(candidateCounts || {}).reduce((a, b) => a + b, 0);
 %>
 <div class="page-header">
   <div>
@@ -280,7 +281,16 @@
   <div class="card-header">
     <div>
       <h2 class="card-title">Candidatos encontrados</h2>
-      <p class="card-subtitle">Mais vendidos + com indício de ganhos extras, ordenados por score.</p>
+      <p class="card-subtitle">Mais vendidos + com indício de ganhos extras, ordenados por score. A lista é limpa automaticamente todos os dias.</p>
+    </div>
+    <div class="header-actions">
+      <form method="GET" action="/descobrir" class="auto-candidate-filter">
+        <select name="status" onchange="this.form.submit()" aria-label="Filtrar candidatos por status">
+          <option value="" <%= !candidateStatus ? 'selected' : '' %>>Todos (<%= candidateTotal %>)</option>
+          <option value="generated" <%= candidateStatus === 'generated' ? 'selected' : '' %>>Gerados / generated (<%= candidateCounts.generated || 0 %>)</option>
+          <option value="sent" <%= candidateStatus === 'sent' ? 'selected' : '' %>>Enviados / sent (<%= candidateCounts.sent || 0 %>)</option>
+        </select>
+      </form>
     </div>
   </div>
 
@@ -303,7 +313,10 @@
     </div>
 
     <% if (!candidates.length) { %>
-      <div class="empty auto-empty"><span>🔎</span><p>Nenhum candidato encontrado</p><small>Rode uma busca para popular a lista de ofertas.</small></div>
+      <div class="empty auto-empty"><span>🔎</span>
+        <p><%= candidateStatus ? 'Nenhum candidato com esse status' : 'Nenhum candidato encontrado' %></p>
+        <small><%= candidateStatus ? 'Altere o filtro para ver outros candidatos.' : 'Rode uma busca para popular a lista de ofertas.' %></small>
+      </div>
     <% } else { %>
       <div class="table-wrapper auto-candidates-table">
         <table class="table">

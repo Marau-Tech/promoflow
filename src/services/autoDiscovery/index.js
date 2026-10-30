@@ -28,9 +28,24 @@ function scoreCandidate(c, cfg) {
   return score;
 }
 
+function cleanupCandidates() {
+  const removed = AutoDiscoveryCandidate.removeOlderThanToday();
+  if (removed) {
+    logger.info('mercadolivre', 'Candidatos de dias anteriores removidos', { removed }, 'auto_discovery');
+  }
+  return removed;
+}
+
 async function runOnce(opts = {}) {
   const cfg = getConfig();
   if (cfg.enabled === false || cfg.enabled === 'false') return { skipped: true };
+
+  // Zera os candidatos de dias anteriores para que a busca encontre ofertas novas.
+  try {
+    cleanupCandidates();
+  } catch (e) {
+    logger.warn('mercadolivre', 'Falha ao limpar candidatos antigos', logger.errorMeta(e), 'auto_discovery');
+  }
 
   const run = AutoDiscoveryRun.create({ ...cfg, ...opts });
   const errors = [];
@@ -200,4 +215,4 @@ async function runOnce(opts = {}) {
   }
 }
 
-module.exports = { runOnce };
+module.exports = { runOnce, cleanupCandidates };

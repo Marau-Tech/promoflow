@@ -66,6 +66,12 @@ exports.remove = (req, res) => {
   logger.info('grupos', 'Grupo removido', { group_id: req.params.id }, 'groups');
   res.redirect('/grupos');
 };
+exports.removeMany = (req, res) => {
+  const ids = [].concat(req.body.ids || []).map(Number).filter(Boolean);
+  const removed = Group.removeMany(ids);
+  if (removed) logger.info('grupos', 'Grupos removidos em massa', { group_ids: ids, removed }, 'groups');
+  res.redirect('/grupos');
+};
 exports.logoutWhatsapp = async (req, res, next) => {
   try {
     await whatsapp.logout();

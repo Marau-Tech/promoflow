@@ -78,8 +78,18 @@ const AutoDiscoveryCandidate = {
     const c = db.prepare(`SELECT id FROM auto_discovery_candidates WHERE key = ? AND status IN ('generated','sent')`).get(key);
     return !!c;
   },
-  list(limit = 100) {
+  list(limit = 100, status = null) {
+    if (status) {
+      return db.prepare('SELECT * FROM auto_discovery_candidates WHERE status = ? ORDER BY seen_at DESC LIMIT ?').all(status, limit);
+    }
     return db.prepare('SELECT * FROM auto_discovery_candidates ORDER BY seen_at DESC LIMIT ?').all(limit);
+  },
+  counts() {
+    const rows = db.prepare('SELECT status, COUNT(*) AS c FROM auto_discovery_candidates GROUP BY status').all();
+    return Object.fromEntries(rows.map(r => [r.status, r.c]));
+  },
+  removeOlderThanToday() {
+    return db.prepare("DELETE FROM auto_discovery_candidates WHERE seen_at < date('now','localtime','start of day')").run().changes;
   },
 };
 

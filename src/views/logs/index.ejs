@@ -13,6 +13,7 @@
     if (f.q) p.set('q', f.q);
     if (f.from) p.set('from', f.from);
     if (f.to) p.set('to', f.to);
+    if (f.all) p.set('all', '1');
     if (f.limit && Number(f.limit) !== 200) p.set('limit', f.limit);
     const s = p.toString();
     return s ? `?${s}` : '';
@@ -25,7 +26,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Logs &amp; Erros</h1>
-    <p class="page-subtitle">Tudo o que acontece no sistema, com filtros por menu, categoria e nível.</p>
+    <p class="page-subtitle">Tudo o que acontece no sistema. Por padrão, exibimos os logs de hoje; use as datas ou “Todos os períodos” para ver o histórico.</p>
   </div>
   <div class="header-actions">
     <a class="btn btn-ghost" href="/logs/export.csv<%= paramsFor() %>">Exportar CSV</a>
@@ -110,6 +111,7 @@
 
   <div class="quick-filters">
     <span class="quick-label">Atalhos:</span>
+    <a class="filter-chip <%= filters.all ? 'active' : '' %>" href="/logs?all=1">Todos os períodos</a>
     <a class="filter-chip <%= filters.level === 'error' && !filters.category ? 'active' : '' %>" href="/logs?level=error">Todos os erros <b><%= stats.error %></b></a>
     <a class="filter-chip <%= filters.category === 'agendamentos' && filters.level === 'error' ? 'active' : '' %>" href="/logs?level=error&category=agendamentos">Erros de agendamento</a>
     <a class="filter-chip <%= filters.category === 'mercadolivre' && filters.level === 'error' ? 'active' : '' %>" href="/logs?level=error&category=mercadolivre">Erros do Mercado Livre</a>

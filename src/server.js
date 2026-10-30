@@ -46,9 +46,31 @@ setInterval(async () => {
   }
 }, 60000);
 
+// Limpeza diária dos candidatos encontrados (mantém somente os do dia atual)
+function cleanupAutoDiscoveryCandidates() {
+  try {
+    autoDiscovery.cleanupCandidates();
+  } catch (e) {
+    logger.error('mercadolivre', 'Erro ao limpar candidatos antigos da descoberta', logger.errorMeta(e), 'server');
+  }
+}
+cleanupAutoDiscoveryCandidates();
+setInterval(cleanupAutoDiscoveryCandidates, 10 * 60 * 1000);
+
 // Checagem de cupons esgotados (a busca completa de cupons continua manual em /cupons)
 const couponDiscovery = require('./services/couponDiscovery');
 const couponConfig = require('./services/couponDiscovery/config');
+
+// Limpeza diária dos cupons ML (mantém somente os do dia atual)
+function cleanupMLCoupons() {
+  try {
+    couponDiscovery.cleanupCoupons();
+  } catch (e) {
+    logger.error('cupons_ml', 'Erro ao limpar cupons antigos', logger.errorMeta(e), 'server');
+  }
+}
+cleanupMLCoupons();
+setInterval(cleanupMLCoupons, 10 * 60 * 1000);
 
 setInterval(async () => {
   try {

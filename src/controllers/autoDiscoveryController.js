@@ -12,6 +12,7 @@ const logger = require('../services/logger');
 const affiliate = require('../services/affiliate');
 
 const LINK_KEYS = ['affiliate_url', 'affiliate_tag', 'affiliate_tool'];
+const CANDIDATE_STATUSES = ['new', 'generated', 'sent', 'skipped'];
 
 /** Configuração sem os cookies da sessão do ML, para exibir e registrar em log. */
 function publicConfig(cfg = getConfig()) {
@@ -20,11 +21,14 @@ function publicConfig(cfg = getConfig()) {
 }
 
 exports.index = (req, res) => {
+  const candidateStatus = CANDIDATE_STATUSES.includes(req.query.status) ? req.query.status : '';
   res.render('auto-discovery/index', {
     title: 'Descoberta Automática',
     config: publicConfig(),
     runs: AutoDiscoveryRun.recent(10),
-    candidates: AutoDiscoveryCandidate.list(200),
+    candidates: AutoDiscoveryCandidate.list(200, candidateStatus),
+    candidateStatus,
+    candidateCounts: AutoDiscoveryCandidate.counts(),
     groups: Group.active(),
     mlConfigured: mlAuth.isConfigured(),
     mlConnected: mlAuth.isConnected(),
@@ -176,5 +180,6 @@ exports.runs = (req, res) => {
 };
 
 exports.candidates = (req, res) => {
-  res.json({ candidates: AutoDiscoveryCandidate.list(100) });
+  const status = CANDIDATE_STATUSES.includes(req.query.status) ? req.query.status : null;
+  res.json({ candidates: AutoDiscoveryCandidate.list(100, status) });
 };

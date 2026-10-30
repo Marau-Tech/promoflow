@@ -16,6 +16,11 @@ const Group = {
   },
   toggle(id, active) { db.prepare('UPDATE groups SET active = ? WHERE id = ?').run(active ? 1 : 0, id); },
   remove(id) { db.prepare('DELETE FROM groups WHERE id = ?').run(id); },
+  removeMany(ids) {
+    if (!ids?.length) return 0;
+    const placeholders = ids.map(() => '?').join(',');
+    return db.prepare(`DELETE FROM groups WHERE id IN (${placeholders})`).run(...ids).changes;
+  },
 };
 
 module.exports = Group;
