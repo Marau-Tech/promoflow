@@ -1,5 +1,6 @@
 const axios = require('axios');
 const logger = require('./logger');
+const mlAuth = require('./mlAuth');
 
 const http = axios.create({
   timeout: 20000,
@@ -123,9 +124,35 @@ function sameProduct(card, sku) {
   return [md.id, md.product_id].some(v => v && String(v).toUpperCase() === id);
 }
 
+/** Ofertas reais do produto no catálogo do Mercado Livre. */
+async function catalogOffers(productId) {
+  if (!productId) return [];
+  const token = await mlAuth.getAccessToken();
+  if (!token) return [];
+  const res = await axios.get(`https://api.mercadolibre.com/products/${encodeURIComponent(productId)}/items`, {
+    params: { limit: 20 },
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: 20000,
+    validateStatus: s => s >= 200 && s < 300,
+  });
+  return (res.data?.results || [])
+    .filter(item => item?.item_id && Number(item.price) > 0 && (!item.condition || item.condition === 'new'))
+    .map(item => ({
+      item_id: item.item_id,
+      price: Number(item.price),
+      original_price: Number(item.original_price) || null,
+    }));
+}
+
+async function lowestCatalogOffer(productId) {
+  const offers = await catalogOffers(productId);
+  if (!offers.length) return null;
+  return offers.reduce((best, item) => (item.price < best.price ? item : best), offers[0]);
+}
+
 /**
  * Consulta o link de afiliado (meli.la) e devolve o preço que o comprador vê agora:
- * preço atual, se o desconto vale só no Pix e se o ML exibe algum cupom no produto.
+ * preço do catálogo, se o desconto vale só no Pix e se o ML exibe algum cupom no produto.
  * Retorna null quando não dá para confirmar que o card é do produto da promoção.
  */
 async function fetchLiveOffer(url, { sku = null } = {}) {
@@ -144,7 +171,54 @@ async function fetchLiveOffer(url, { sku = null } = {}) {
     }, 'ml_live_offer');
     return null;
   }
-  return offerOf(card);
+
+  const offer = offerOf(card);
+  if (!offer) return null;
+  offer.price_source = 'card';
+
+  // O cartão social do afiliado pode trazer campanhas pessoais (ex.: primeira
+  // compra) que não valem para todo mundo. Só confiamos no preço Pix do cartão
+  // quando ele é o item mais barato do catálogo; se houver oferta mais barata,
+  // divulgamos a oferta real e não afirmamos desconto no Pix.
+  const productId = card.metadata?.product_id || card.metadata?.id || null;
+  try {
+    const cheapest = await lowestCatalogOffer(productId);
+    if (cheapest) {
+      const cardItemId = String(card.metadata?.id || '').toUpperCase();
+      const cheapestItemId = String(cheapest.item_id || '').toUpperCase();
+      const cardIsCheapest = cardItemId && cheapestItemId && cardItemId === cheapestItemId
+        && offer.price <= cheapest.price;
+
+      if (cardIsCheapest) {
+        offer.item_id = cheapest.item_id;
+      } else {
+        if (cheapest.price !== offer.price) {
+          logger.info('promocoes', 'Preço do cartão substituído pelo menor preço do catálogo', {
+            url,
+            product_id: productId,
+            card_item_id: cardItemId || null,
+            card_price: offer.price,
+            catalog_item_id: cheapest.item_id,
+            catalog_price: cheapest.price,
+          }, 'ml_live_offer');
+        }
+        const originalPrice = Math.max(Number(offer.original_price) || 0, Number(cheapest.original_price) || 0);
+        offer.item_id = cheapest.item_id;
+        offer.price = cheapest.price;
+        offer.original_price = originalPrice > cheapest.price ? originalPrice : null;
+        offer.pix = false;
+        offer.price_without_pix = null;
+        offer.price_source = 'catalog';
+      }
+    }
+  } catch (e) {
+    logger.warn('promocoes', 'Falha ao consultar o preço do catálogo; usando o preço do cartão', logger.errorMeta(e, {
+      url,
+      product_id: productId,
+    }), 'ml_live_offer');
+  }
+
+  return offer;
 }
 
 module.exports = { canCheck, fetchLiveOffer, extractPolycards, offerOf, parseCouponText };

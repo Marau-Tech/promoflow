@@ -198,6 +198,9 @@ async function prepareForSend(promotion) {
     promotion_id: prepared.id,
     checked: Boolean(live),
     price: live?.price ?? prepared.price,
+    price_source: live?.price_source ?? null,
+    item_id: live?.item_id ?? null,
+    product_id: live?.product_id ?? null,
     pix: live?.pix ?? null,
     ml_coupon: live?.coupon?.text ?? null,
   }, 'promotion_service');
